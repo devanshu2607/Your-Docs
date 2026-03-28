@@ -9,7 +9,7 @@ export default function Login(){
     const navigate = useNavigate()
     const passref = useRef();
     const [error, setError] = useState("");
-    const [data , Setdata] = useState({
+    const [data , setData] = useState({
         username : "",
         password : ""
     });
@@ -24,8 +24,8 @@ export default function Login(){
 
             const res = await api.post('login_user' , formData)
             console.log(res.data)
-            // localStorage.setItem("token" , res.data.access_token)
-            // navigate('/login');
+            localStorage.setItem("token" , res.data.access_token)
+            navigate('/dashboard');
             alert ("login successful")
         }catch(err){
             console.log(err.response?.data)
@@ -38,7 +38,7 @@ export default function Login(){
             }
             else if(message === "password doest not match"){
                 alert("Password does not match")
-                Setdata({ ...data , password : ""});
+                setData({ ...data , password : ""});
                 setError("Password is wrong")
                 passref.current.focus();
             }
@@ -56,14 +56,14 @@ export default function Login(){
                 
                     <div className="inputBox">
                         <input className="email" placeholder="Email" 
-                    onChange={(e) => Setdata({...data , username : e.target.value})}
+                    onChange={(e) => setData({...data , username : e.target.value})}
                     />
                     </div>
 
                     <div className="inputBox">
                          <input className="password" placeholder="Password" 
                          ref={passref} value={data.password}
-                    onChange={(e) => Setdata({...data , password : e.target.value})}
+                    onChange={(e) => setData({...data , password : e.target.value})}
                     />
                     </div>
 
@@ -72,7 +72,7 @@ export default function Login(){
 
                     <p>
                         Don't have an account? 
-                        <Link to="/"> Signup</Link>
+                        <Link to="/">Signup</Link>
                     </p>
 
             </div>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel , Field
-from typing import Annotated
+from typing import Annotated , Optional
 from uuid import UUID
 
 class Create_Docs(BaseModel):
@@ -13,3 +13,8 @@ class View_Docs(BaseModel):
 
     class Config:
         from_attributes = True 
+
+
+class Update_Docs(BaseModel):
+    title : Optional[str] = None 
+    content : Optional[str] = None

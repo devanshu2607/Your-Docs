@@ -16,7 +16,7 @@ export default function SignUp(){
 
     const handlsignup = async() =>{
         try{
-            const res = await api.post('create_user' , data);
+            const res = await api.post('/create_user' , data);
             console.log(res.data)
             alert("Signup successfull")
             navigate('/login')
