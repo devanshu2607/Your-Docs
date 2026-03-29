@@ -1,113 +1,122 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
 import api from '../Auth/axios'
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import {useState , useEffect} from 'react'
+import {useNavigate } from 'react-router-dom'
+import {useEditor , EditorContent} from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit' 
 import './User.css'
 
-export default function Update() {
-    const { id } = useParams()
+export default function CreateDocs(){
+    const [error , SetError] = useState("")
     const navigate = useNavigate()
+    const [ws, setWs] = useState(null)
+    const [connected, setConnected] = useState(false)
+    const [docId, setDocId] = useState(null)
 
-    const [error, setError] = useState("")
-    const [data, setData] = useState({
-        title: "",
-        content: ""
-    })
+    const [data , Setdata] = useState({
+        title : "",
+        content : ""
+    })   
 
     const editor = useEditor({
         extensions: [StarterKit],
-        content: "",
+        content: "<p>Write your docs...</p>",
         onUpdate: ({ editor }) => {
-            const html = editor.getHTML()
-            setData(prev => ({
+            Setdata(prev => ({
                 ...prev,
-                content: html
-            }))
+                content: editor.getHTML()
+            }));
         }
-    })
+    });
 
-    // 🔥 Fetch existing doc
-   useEffect(() => {
-    if (!editor) return;
-
-    const fetchDoc = async () => {
+    const handlecreatedocs = async() => {
         try {
-            const res = await api.get(`/docs/${id}`)
-
-            console.log("Fetched doc:", res.data)
-
-            setData({
-                title: res.data.title,
-                content: res.data.content
+            const res = await api.post('create_docs' ,{
+                title: data.title,
+                content: data.content
             })
-
-            editor.commands.setContent(res.data.content)
-
-        } catch (err) {
-            console.log(err)
-            setError("Failed to load document")
+            setDocId(res.data.id)
+        } catch(err){
+            console.log(err.response?.data)
+            SetError("docs not created")
         }
+    };
+
+    const handleConnect = () => {
+        if (!docId) return alert("Create doc first")
+
+        const token = localStorage.getItem("token")
+
+        const socket = new WebSocket(
+            `ws://localhost:8000/ws/${docId}?token=${token}`
+        )
+
+        socket.onopen = () => setConnected(true)
+
+        socket.onmessage = (event) => {
+            if (event.data !== editor.getHTML()) {
+                editor.commands.setContent(event.data)
+            }
+        }
+
+        setWs(socket)
     }
 
-    fetchDoc()
-}, [id, editor])
+    useEffect(() => {
+        if (!editor || !ws || !connected) return
 
-    // 🔥 Update doc
-    const handleUpdateDocs = async () => {
-    try {
-        const html = editor.getHTML();  // 🔥 direct editor se
+        const handler = () => {
+            ws.send(editor.getHTML())
+        }
 
-        const res = await api.put(`/update_docs/${id}`, {
-            title: data.title,
-            content: html
-        })
+        editor.on("update", handler)
+        return () => editor.off("update", handler)
 
-        console.log("Updated:", res.data)
-        navigate('/dashboard')
-
-    } catch (err) {
-        console.log(err.response?.data)
-        setError('Docs not updated')
-    }
-}
+    }, [editor, ws, connected])
 
     return (
         <section>
             <div className='docs'>
-                <h1>Update Docs</h1>
+                <h1>Create Docs</h1>
 
-                {/* Title Input */}
                 <div className='inputBox'>
                     <input
                         type="text"
                         placeholder='Enter title'
                         value={data.title}
                         onChange={(e) =>
-                            setData({ ...data, title: e.target.value })
+                            Setdata({ ...data , title : e.target.value})
                         }
                     />
                 </div>
 
-                {/* Toolbar */}
+                <div className='btn' onClick={handlecreatedocs}>
+                    Create Doc
+                </div>
+
+                {/* 🔥 CODE SHOW */}
+                {docId && (
+                    <div>
+                        <p>Share Code:</p>
+                        <b>{docId}</b>
+                    </div>
+                )}
+
+                <div className='btn' onClick={handleConnect}>
+                    {connected ? "Connected ✅" : "Start Live Editing"}
+                </div>
+
                 <div className="toolbar">
-                    <button onClick={() => editor?.chain().focus().toggleBold().run()}>
+                    <button onClick={() => editor.chain().focus().toggleBold().run()}>
                         Bold
                     </button>
 
-                    <button onClick={() => editor?.chain().focus().toggleItalic().run()}>
+                    <button onClick={() => editor.chain().focus().toggleItalic().run()}>
                         Italic
                     </button>
                 </div>
 
-                {/* Editor */}
-                <div className="inputBox">
+                <div className="inputBox">  
                     <EditorContent editor={editor} />
-                </div>
-
-                {/* Save Button */}
-                <div className='btn' onClick={handleUpdateDocs}>
-                    Update Docs
                 </div>
 
                 {error && <p style={{ color: "red" }}>{error}</p>}

@@ -1,7 +1,10 @@
 from Models.Docs_Model import Document
 from sqlalchemy.orm import Session
 from fastapi import HTTPException , Depends
-
+from Models.Collabration_Model import CollaborationSession
+from Models.Participating_Model import SessionParticipant
+import uuid
+from datetime  import datetime
 def creating_docs(data , db: Session , user):
 
     user_id = user.id
@@ -67,3 +70,61 @@ def delete_docs(docs_id , user , db:Session):
     db.commit()
 
     return {"message": "Doc deleted successfully"}
+
+def get_or_create_session(docs_id , user_id , db : Session):
+   
+    session = db.query(CollaborationSession).filter(CollaborationSession.doc_id == docs_id,
+                                                    CollaborationSession.ended_at == None).first()
+    
+    if session:
+        return session
+    
+    new_session = CollaborationSession(
+        doc_id = docs_id,
+        token = str(uuid.uuid4()),
+        created_by = user_id
+    )
+
+    db.add(new_session)
+    db.commit()
+    db.refresh(new_session)
+
+    return new_session
+    
+def add_participant(session_id , user_id , db :Session):
+    participant = SessionParticipant(
+        session_id = session_id,
+        user_id = user_id
+    )
+
+    db.add(participant)
+    db.commit()
+    db.refresh(participant)
+
+    return participant
+
+def user_disconnet(participant_id , db:Session ):
+    check_participant = db.query(SessionParticipant).filter(
+        SessionParticipant.id == participant_id).first()
+    
+    if check_participant:
+        check_participant.disconnected_at = datetime.utcnow()
+        db.commit()
+    
+    return check_participant
+
+def empty_session(session_id , db : Session):
+    active_user = db.query(SessionParticipant).filter(
+        SessionParticipant.session_id == session_id,
+
+        SessionParticipant.disconnected_at == None
+    ).count()
+
+    if active_user == 0:
+        check_session = db.query(SessionParticipant).filter(
+            CollaborationSession.id == session_id
+        ).first()
+
+        if check_session:
+            check_session.end_at = datetime.utcnow()
+            db.commit()

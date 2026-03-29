@@ -25,3 +25,14 @@ def Jwt_Token_Checker(token : Session = Depends(authoscheme) , db : Session = De
         raise HTTPException(401 , detail="user not matched ")
     return user 
 
+def verify_user_token(token: str, db: Session):
+    # decode token
+    payload = jwt.decode(token,SECRET_KEY , algorithms=[ALOGORITHM])   # jo bhi tera logic hai
+    user_id = payload.get("user_id")
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise Exception("Invalid user")
+
+    return user
