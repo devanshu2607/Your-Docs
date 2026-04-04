@@ -1,126 +1,186 @@
 import api from '../Auth/axios'
-import {useState , useEffect} from 'react'
-import {useNavigate } from 'react-router-dom'
-import {useEditor , EditorContent} from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit' 
+import { useState, useEffect, useRef     } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useEditor, EditorContent} from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
 import './User.css'
 
-export default function CreateDocs(){
-    const [error , SetError] = useState("")
+export default function UpdateDocs() {
+    const { id } = useParams()
     const navigate = useNavigate()
-    const [ws, setWs] = useState(null)
-    const [connected, setConnected] = useState(false)
-    const [docId, setDocId] = useState(null)
-
-    const [data , Setdata] = useState({
-        title : "",
-        content : ""
-    })   
+    const [title, setTitle] = useState("")
+    const [connected , setConnected] = useState(false )
+    const [error, setError] = useState("")
+    const [saved, setSaved] = useState(false)
+    const [showCode , setShowCode] = useState(false)
+    const [loading , setLoading] = useState(false)
+    const [fetchedContent, setFetchedContent] = useState(null) // ✅ content store karo
+    const editorRef = useRef(null)
+    const wsRef = useRef(null)
+    const isRmoteUpdate = useRef(false)
 
     const editor = useEditor({
         extensions: [StarterKit],
-        content: "<p>Write your docs...</p>",
-        onUpdate: ({ editor }) => {
-            Setdata(prev => ({
-                ...prev,
-                content: editor.getHTML()
-            }));
+        content: "<p>Loading...</p>",
+        onUpdate :({editor})=>{
+            if (isRmoteUpdate.current) return 
+
+            if(wsRef.current && wsRef.current.readyState === WebSocket.OPEN){
+                wsRef.current.send(editor.getHTML())
+            }
         }
     });
 
-    const handlecreatedocs = async() => {
-        try {
-            const res = await api.post('create_docs' ,{
-                title: data.title,
-                content: data.content
-            })
-            setDocId(res.data.id)
-        } catch(err){
-            console.log(err.response?.data)
-            SetError("docs not created")
-        }
-    };
+    // ✅ editor ref latest rakho
+    useEffect(() => {
+        editorRef.current = editor
+    }, [editor])
 
-    const handleConnect = () => {
-        if (!docId) return alert("Create doc first")
+    // ✅ Pehle data fetch karo, content state mein rakho
+    useEffect(() => {
+        if (!id) return
 
-        const token = localStorage.getItem("token")
-
-        const socket = new WebSocket(
-            `ws://localhost:8000/ws/${docId}?token=${token}`
-        )
-
-        socket.onopen = () => setConnected(true)
-
-        socket.onmessage = (event) => {
-            if (event.data !== editor.getHTML()) {
-                editor.commands.setContent(event.data)
+        const fetchDoc = async () => {
+            try {
+                const res = await api.get(`/get_doc/${id}`)
+                setTitle(res.data.title || "")
+                setFetchedContent(res.data.content || "<p></p>")
+            } catch (err) {
+                console.log("Doc load failed", err)
+                setError("Doc load nahi hua")
             }
         }
 
-        setWs(socket)
-    }
+        fetchDoc()
+    }, [id])
+
+    // ✅ Jab content aaye AUR editor ready ho — tab set karo
+    useEffect(() => {
+        if (editor && fetchedContent) {
+            editor.commands.setContent(fetchedContent, false)
+        }
+    }, [editor, fetchedContent])
 
     useEffect(() => {
-        if (!editor || !ws || !connected) return
-
-        const handler = () => {
-            ws.send(editor.getHTML())
+        return () => {
+            if (wsRef.current){
+                wsRef.current.close()
+                wsRef.current = null
+            }
         }
+    },[])
 
-        editor.on("update", handler)
-        return () => editor.off("update", handler)
+    const handleUpdate = async () => {
+        if (loading) return 
+        setLoading(true)
+        try {
+            await api.put(`/update_docs/${id}`, {
+                title: title,
+                content: editorRef.current?.getHTML()
+            })
+            setSaved(true)
+            setTimeout(() => navigate("/dashboard"), 1000)
+        } catch (err) {
+            setError("Update failed")
+        }
+    }
 
-    }, [editor, ws, connected])
+    const handleStartSession = () => {
+        const token = localStorage.getItem("token")
+        const scoket = new WebSocket(`ws://localhost:8000/ws/${id}?token=${token}`)
+        
+        scoket.onopen=()=>{
+            setConnected(true)
+            setShowCode(true)
+        }
+        scoket.onmessage = (event) => {
+            const currenteditor = editorRef.current
+            if (!currenteditor) return 
+            if (event.data === currenteditor.getHTML()) return 
+
+            isRmoteUpdate.current = true
+            const {from , to } = currenteditor.state.selection 
+            currenteditor.commands.setContent(event.data , false)
+            try{
+                currenteditor.commands.setTextSelection({from , to })
+            }catch(_) {}
+            isRmoteUpdate.current =false
+        }
+        scoket.onerror = (e) => console.log("Ws error" ,e )
+
+        scoket.onclose = () => {
+            setConnected(false)
+            setShowCode(false)
+        }
+        wsRef.current = scoket
+    }
+    const handleEndSession = () => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({type : "END_SESSION"}))
+        }
+        setConnected(false)
+        setShowCode(false)
+    }
 
     return (
         <section>
             <div className='docs'>
-                <h1>Create Docs</h1>
+                <h1>Edit Doc</h1>
 
                 <div className='inputBox'>
                     <input
                         type="text"
-                        placeholder='Enter title'
-                        value={data.title}
-                        onChange={(e) =>
-                            Setdata({ ...data , title : e.target.value})
-                        }
+                        placeholder='Title'
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
                     />
                 </div>
-
-                <div className='btn' onClick={handlecreatedocs}>
-                    Create Doc
-                </div>
-
-                {/* 🔥 CODE SHOW */}
-                {docId && (
+                {showCode && (
                     <div>
-                        <p>Share Code:</p>
-                        <b>{docId}</b>
+                        <p style={{ color: "#1f2937" }}>Share Code:</p>
+                        <b style={{ color: "#1f2937" }}>{id}</b>
                     </div>
                 )}
 
-                <div className='btn' onClick={handleConnect}>
-                    {connected ? "Connected ✅" : "Start Live Editing"}
-                </div>
+                {/* ✅ Connect button — sirf tab dikhega jab connected nahi */}
+                {!connected ? (
+                    <div className='btn' onClick={handleStartSession}>
+                        🔴 Start Live Session
+                    </div>
+                ) : (
+                    <div style={{ display: "flex", gap: "10px" }}>
+                        <div className='btn' style={{
+                            background: "linear-gradient(135deg, #a8edea, #fed6e3)",
+                            flex: 1
+                        }}>
+                            Connected ✅
+                        </div>
+                        <div className='btn' style={{
+                            background: "linear-gradient(135deg, #ff6b6b, #ee0979)",
+                            flex: 1
+                        }}
+                            onClick={handleEndSession}>
+                            🔴 End Session
+                        </div>
+                    </div>
+                )}
 
                 <div className="toolbar">
-                    <button onClick={() => editor.chain().focus().toggleBold().run()}>
-                        Bold
-                    </button>
-
-                    <button onClick={() => editor.chain().focus().toggleItalic().run()}>
-                        Italic
-                    </button>
+                    <button onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
+                    <button onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
                 </div>
 
-                <div className="inputBox">  
+                <div className="inputBox">
                     <EditorContent editor={editor} />
                 </div>
 
+                <div className='btn' onClick={handleUpdate} style={{ opacity: loading ? 0.6 : 1 }}>
+                    {loading ? "Saving..." : "Save Changes"}
+                </div>
+
+                {saved && <p style={{ color: "green" }}>Saved! Redirecting...</p>}
                 {error && <p style={{ color: "red" }}>{error}</p>}
             </div>
         </section>
     )
-}
+}   

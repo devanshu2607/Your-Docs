@@ -21,9 +21,8 @@ def creating_docs(data , db: Session , user):
     return doc
 
 def view_docs(docs_id , db : Session , user):
-    user_id = user.id
-    existing_doc = db.query(Document).filter(Document.id == docs_id,
-                                             Document.user_id == user_id).first()
+
+    existing_doc = db.query(Document).filter(Document.id == docs_id,).first()
 
     if not existing_doc:
         return HTTPException(404 , detail="document not founded")
@@ -37,7 +36,9 @@ def docs(db : Session , user):
     if not existing_doc:
         return HTTPException(404 , detail="document not founded")
     
-    return existing_doc
+    return existing_doc or []
+
+
 
 def update_Docs(docs_id , user , db : Session , data):
     user_id = user.id
@@ -65,6 +66,21 @@ def delete_docs(docs_id , user , db:Session):
                                      Document.user_id == user_id).first()
     if not docs:
         raise HTTPException(404 , detail="no docs found")
+    
+    sessions = db.query(CollaborationSession).filter(
+        CollaborationSession.doc_id == docs_id
+    ).all()
+
+    for session in sessions:
+        # ✅ Pehle participants delete karo
+        db.query(SessionParticipant).filter(
+            SessionParticipant.session_id == session.id
+        ).delete()
+
+    # ✅ Phir sessions delete karo
+    db.query(CollaborationSession).filter(
+        CollaborationSession.doc_id == docs_id
+    ).delete()
     
     db.delete(docs)
     db.commit()
@@ -103,7 +119,7 @@ def add_participant(session_id , user_id , db :Session):
 
     return participant
 
-def user_disconnet(participant_id , db:Session ):
+def user_disconnect(participant_id , db:Session ):
     check_participant = db.query(SessionParticipant).filter(
         SessionParticipant.id == participant_id).first()
     
@@ -121,10 +137,29 @@ def empty_session(session_id , db : Session):
     ).count()
 
     if active_user == 0:
-        check_session = db.query(SessionParticipant).filter(
+        check_session = db.query(CollaborationSession).filter(
             CollaborationSession.id == session_id
         ).first()
 
         if check_session:
-            check_session.end_at = datetime.utcnow()
+            check_session.ended_at = datetime.utcnow()
             db.commit()
+
+def end_session(session_id , db : Session):
+    existed_session = db.query(CollaborationSession).filter(CollaborationSession.id == session_id).first()
+
+    if not existed_session:
+        raise HTTPException(404 , detail = "Session not founded")
+    
+    existed_session.ended_at  = datetime.utcnow()
+
+    db.query(SessionParticipant).filter(
+        SessionParticipant.session_id == session_id,
+        SessionParticipant.disconnected_at == None
+    ).update({
+        SessionParticipant.disconnected_at : datetime.utcnow()
+    })
+
+    db.commit()
+
+    return {"message" : "Session Ended "}

@@ -1,7 +1,7 @@
 from fastapi import HTTPException , Depends
 from sqlalchemy.orm import Session
-from Schemas.User_Schema import User_Login , User_SignUp
-from Utils.dependency import Jwt_Token_Checker
+
+
 from Utils.hashing import hash_password , verify_password
 from Utils.jwt import create_jwt_handler
 from Models.User_Model import User
@@ -61,3 +61,9 @@ def login_user(form_data , db : Session):
         "access_token": access_token,
         "token_type": "bearer"
     }
+
+def logout( token , db : Session):
+    existed_session = db.query(UserSession).filter(UserSession.token == token).delete()
+
+    db.commit()
+    return {"message":"logout successfully "}
