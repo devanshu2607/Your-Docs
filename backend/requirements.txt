@@ -1,5 +1,7 @@
 fastapi
 uvicorn
+websockets
+tensorflow-cpu
 sqlalchemy
 python-jose
 psycopg2-binary
