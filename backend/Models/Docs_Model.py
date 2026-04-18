@@ -11,4 +11,4 @@ class Document(Base):
     title = Column(String)
     content = Column(String)
 
-    user_id = Column(UUID(as_uuid = True) , ForeignKey("User_Table.id"))
+    created_by = Column(UUID(as_uuid = True) , ForeignKey("User_Table.id"))

@@ -1,140 +1,111 @@
 import api from '../Auth/axios'
-import { useState, useEffect, useRef     } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEditor, EditorContent} from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import BlockEditor from './BlockEditor'
+import { getDocWsUrl } from '../config'
 import './User.css'
 
 export default function UpdateDocs() {
-    const { id } = useParams()
+    const { id }   = useParams()
     const navigate = useNavigate()
-    const [title, setTitle] = useState("")
-    const [connected , setConnected] = useState(false )
-    const [error, setError] = useState("")
-    const [saved, setSaved] = useState(false)
-    const [showCode , setShowCode] = useState(false)
-    const [loading , setLoading] = useState(false)
-    const [fetchedContent, setFetchedContent] = useState(null) // ✅ content store karo
-    const editorRef = useRef(null)
-    const wsRef = useRef(null)
-    const isRmoteUpdate = useRef(false)
 
-    const editor = useEditor({
-        extensions: [StarterKit],
-        content: "<p>Loading...</p>",
-        onUpdate :({editor})=>{
-            if (isRmoteUpdate.current) return 
+    const [title, setTitle]         = useState("")
+    const [blocks, setBlocks]       = useState([])
+    const [role, setRole]           = useState("")
+    const [connected, setConnected] = useState(false)
+    const [showCode, setShowCode]   = useState(false)
+    const [error, setError]         = useState("")
+    const [saved, setSaved]         = useState(false)
+    const [loading, setLoading]     = useState(false)
 
-            if(wsRef.current && wsRef.current.readyState === WebSocket.OPEN){
-                wsRef.current.send(editor.getHTML())
-            }
-        }
-    });
+    const wsRef     = useRef(null)
+    const liveRef   = useRef(null)   // WS writes here → LiveUpdatePlugin reads it
+    const blocksRef = useRef([])
 
-    // ✅ editor ref latest rakho
-    useEffect(() => {
-        editorRef.current = editor
-    }, [editor])
+    useEffect(() => { blocksRef.current = blocks }, [blocks])
 
-    // ✅ Pehle data fetch karo, content state mein rakho
     useEffect(() => {
         if (!id) return
-
-        const fetchDoc = async () => {
-            try {
-                const res = await api.get(`/get_doc/${id}`)
+        api.get(`/get_doc/${id}`)
+            .then(res => {
                 setTitle(res.data.title || "")
-                setFetchedContent(res.data.content || "<p></p>")
-            } catch (err) {
-                console.log("Doc load failed", err)
-                setError("Doc load nahi hua")
-            }
-        }
-
-        fetchDoc()
+                setBlocks(res.data.blocks || [])
+                setRole(res.data.role || "editor")
+            })
+            .catch(() => setError("Doc load failed"))
     }, [id])
 
-    // ✅ Jab content aaye AUR editor ready ho — tab set karo
-    useEffect(() => {
-        if (editor && fetchedContent) {
-            editor.commands.setContent(fetchedContent, false)
-        }
-    }, [editor, fetchedContent])
-
-    useEffect(() => {
-        return () => {
-            if (wsRef.current){
-                wsRef.current.close()
-                wsRef.current = null
-            }
-        }
-    },[])
-
-    const handleUpdate = async () => {
-        if (loading) return 
-        setLoading(true)
-        try {
-            await api.put(`/update_docs/${id}`, {
-                title: title,
-                content: editorRef.current?.getHTML()
-            })
-            setSaved(true)
-            setTimeout(() => navigate("/dashboard"), 1000)
-        } catch (err) {
-            setError("Update failed")
-        }
-    }
+    useEffect(() => () => { wsRef.current?.close() }, [])
 
     const handleStartSession = () => {
-        const token = localStorage.getItem("token")
-        const scoket = new WebSocket(`ws://localhost:8000/ws/${id}?token=${token}`)
-        
-        scoket.onopen=()=>{
-            setConnected(true)
-            setShowCode(true)
-        }
-        scoket.onmessage = (event) => {
-            const currenteditor = editorRef.current
-            if (!currenteditor) return 
-            if (event.data === currenteditor.getHTML()) return 
+        const token  = localStorage.getItem("token")
+        const cleanId = id.trim()
+        const socket = new WebSocket(getDocWsUrl(cleanId, token))
 
-            isRmoteUpdate.current = true
-            const {from , to } = currenteditor.state.selection 
-            currenteditor.commands.setContent(event.data , false)
-            try{
-                currenteditor.commands.setTextSelection({from , to })
-            }catch(_) {}
-            isRmoteUpdate.current =false
-        }
-        scoket.onerror = (e) => console.log("Ws error" ,e )
+        socket.onopen = () => { setConnected(true); setShowCode(true) }
 
-        scoket.onclose = () => {
-            setConnected(false)
-            setShowCode(false)
+        socket.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data)
+                if (msg.type === 'INIT_BLOCKS') {
+                    const nextBlocks = msg.blocks || []
+                    setBlocks(nextBlocks)
+                    if (nextBlocks[0]?.content) {
+                        liveRef.current = nextBlocks[0].content
+                    }
+                    return
+                }
+
+                if (msg.type === 'BLOCK_UPDATE' && msg.block_id) {
+                    // 1. Update React state (for save button)
+                    setBlocks(prev => prev.map(b =>
+                        b.id === msg.block_id ? { ...b, content: msg.content } : b
+                    ))
+                    // 2. If block[0] changed, write to liveRef so LiveUpdatePlugin
+                    //    can push it directly into Lexical's internal state tree
+                    if (msg.block_id === blocksRef.current[0]?.id) {
+                        liveRef.current = msg.content
+                    }
+                }
+            } catch (_) {}
         }
-        wsRef.current = scoket
+
+        socket.onerror  = e => console.error("WS error", e)
+        socket.onclose  = () => { setConnected(false); setShowCode(false) }
+        wsRef.current   = socket
     }
+
     const handleEndSession = () => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({type : "END_SESSION"}))
-        }
+        if (wsRef.current?.readyState === WebSocket.OPEN)
+            wsRef.current.send(JSON.stringify({ type: "END_SESSION" }))
         setConnected(false)
         setShowCode(false)
     }
 
+    const handleUpdate = async () => {
+        if (loading) return
+        setLoading(true)
+        try {
+            const content = blocksRef.current[0]?.content ?? ""
+            await api.put(`/update_docs/${id}`, { title, content })
+            setSaved(true)
+            setTimeout(() => navigate("/dashboard"), 1000)
+        } catch { setError("Update failed") }
+        finally { setLoading(false) }
+    }
+
+    const handleBlocksChange = useCallback((updated) => setBlocks(updated), [])
+
     return (
         <section>
-            <div className='docs'>
+            <div className="docs">
                 <h1>Edit Doc</h1>
 
-                <div className='inputBox'>
-                    <input
-                        type="text"
-                        placeholder='Title'
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                    />
+                <div className="inputBox">
+                    <input type="text" placeholder="Title" value={title}
+                        onChange={e => setTitle(e.target.value)} />
                 </div>
+
                 {showCode && (
                     <div>
                         <p style={{ color: "#1f2937" }}>Share Code:</p>
@@ -142,45 +113,45 @@ export default function UpdateDocs() {
                     </div>
                 )}
 
-                {/* ✅ Connect button — sirf tab dikhega jab connected nahi */}
                 {!connected ? (
-                    <div className='btn' onClick={handleStartSession}>
-                        🔴 Start Live Session
-                    </div>
+                    <div className="btn" onClick={handleStartSession}>🔴 Start Live Session</div>
                 ) : (
                     <div style={{ display: "flex", gap: "10px" }}>
-                        <div className='btn' style={{
-                            background: "linear-gradient(135deg, #a8edea, #fed6e3)",
-                            flex: 1
-                        }}>
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#a8edea,#fed6e3)" }}>
                             Connected ✅
                         </div>
-                        <div className='btn' style={{
-                            background: "linear-gradient(135deg, #ff6b6b, #ee0979)",
-                            flex: 1
-                        }}
-                            onClick={handleEndSession}>
-                            🔴 End Session
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#ff6b6b,#ee0979)" }}
+                            onClick={handleEndSession}>🔴 End Session
                         </div>
                     </div>
                 )}
 
-                <div className="toolbar">
-                    <button onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
-                    <button onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
+                <BlockEditor
+                    blocks={blocks}
+                    wsRef={wsRef}
+                    liveRef={liveRef}
+                    onBlocksChange={handleBlocksChange}
+                />
+
+                <div className="btn" onClick={handleUpdate} style={{ opacity: loading ? 0.6 : 1 }}>
+                    {loading ? "Saving…" : "💾 Save Changes"}
                 </div>
 
-                <div className="inputBox">
-                    <EditorContent editor={editor} />
-                </div>
-
-                <div className='btn' onClick={handleUpdate} style={{ opacity: loading ? 0.6 : 1 }}>
-                    {loading ? "Saving..." : "Save Changes"}
-                </div>
-
-                {saved && <p style={{ color: "green" }}>Saved! Redirecting...</p>}
+                {saved && <p style={{ color: "green" }}>Saved! Redirecting…</p>}
                 {error && <p style={{ color: "red" }}>{error}</p>}
+
+                {role === "owner" && (
+                    <div className="btn"
+                        style={{ background: "linear-gradient(135deg,#ff6b6b,#ee0979)", marginTop: "4px" }}
+                        onClick={async () => {
+                            if (!window.confirm("Delete this doc?")) return
+                            await api.delete(`/delete_docs/${id}`)
+                            navigate("/dashboard")
+                        }}>
+                        🗑 Delete Doc
+                    </div>
+                )}
             </div>
         </section>
     )
-}   
+}

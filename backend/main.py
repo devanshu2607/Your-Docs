@@ -1,134 +1,226 @@
-from fastapi import FastAPI , HTTPException , Depends , WebSocket , WebSocketException , WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
-from fastapi.security import OAuth2PasswordRequestForm 
-from Database.DataBase import get_db , Base ,Engine , SessionLocal
+from fastapi.security import OAuth2PasswordRequestForm
+from Database.DataBase import get_db, Base, Engine, SessionLocal
 import json
-from Schemas.Docs_Schema import Create_Docs , Update_Docs
-from Schemas.User_Schema import User_Login , User_SignUp
-from Services.Docs import creating_docs , view_docs , docs , update_Docs , delete_docs ,end_session
-from Services.User import create_user , login_user , logout
-from uuid import UUID
-from Utils.dependency import Jwt_Token_Checker , verify_user_token , authoscheme
-from fastapi.middleware.cors import CORSMiddleware
-from Services.Docs import (add_participant , user_disconnect , get_or_create_session , empty_session)
-from Models.Docs_Model import Document
-app = FastAPI()
+import os
 
-Base.metadata.create_all(bind = Engine)
+from Schemas.Docs_Schema import Create_Docs, Update_Docs
+from Schemas.User_Schema import User_SignUp
+from Services.Docs import (
+    creating_docs, view_docs, docs, update_Docs, delete_docs, end_session,
+    add_participant, user_disconnect, get_or_create_session, empty_session,
+    join_doc, update_single_block, get_doc_blocks
+)
+from Services.User import create_user, login_user, logout
+from uuid import UUID
+from Utils.dependency import Jwt_Token_Checker, verify_user_token, authoscheme
+from fastapi.middleware.cors import CORSMiddleware
+
+import pickle
+import numpy as np
+from dotenv import load_dotenv
+
+load_dotenv()
+
+try:
+    import tensorflow as tf
+except Exception:
+    tf = None
+
+
+def get_allowed_origins():
+    raw_origins = os.getenv("CORS_ORIGINS", "")
+    origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+    frontend_url = os.getenv("FRONTEND_URL", "").strip()
+    if frontend_url and frontend_url not in origins:
+        origins.append(frontend_url)
+
+    if not origins:
+        origins = ["http://localhost:3000"]
+
+    return origins
+
+model = None
+tokenizer = None
+if tf is not None:
+    try:
+        model = tf.keras.models.load_model("lstm_model.h5")
+        with open("lstm_tokenizer.pkl", "rb") as f:
+            tokenizer = pickle.load(f)
+    except Exception as exc:
+        print("Prediction model unavailable:", exc)
+max_len = 20
+
+app = FastAPI()
+Base.metadata.create_all(bind=Engine)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = [
-    "http://localhost:3000"
-] ,
-    allow_credentials = True ,
-    allow_methods = ['*'],
-    allow_headers = ['*'],
+    allow_origins=get_allowed_origins(),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-class container_manger:
+
+# ── WebSocket connection manager ──────────────────────────────────────────────
+
+class ConnectionManager:
     def __init__(self):
-        self.room = {}
+        self.room: dict = {}
 
-    async def connect(self , doc_id , websocket):
+    async def connect(self, doc_id, websocket: WebSocket):
         await websocket.accept()
+        self.room.setdefault(doc_id, []).append(websocket)
 
-        if doc_id not in self.room:
-            self.room[doc_id] = []
-        
-        self.room[doc_id].append(websocket)
-
-    def disconnet(self , doc_id , websocket):
+    def disconnect(self, doc_id, websocket: WebSocket):
         if doc_id in self.room:
-            self.room[doc_id].remove(websocket)
+            self.room[doc_id].discard(websocket) if hasattr(self.room[doc_id], 'discard') \
+                else (self.room[doc_id].remove(websocket) if websocket in self.room[doc_id] else None)
 
-    async def BroadCast(self, doc_id, message):
-         for connection in self.room.get(doc_id, []).copy():
+    async def broadcast(self, doc_id, message: str, exclude: WebSocket = None):
+        for conn in list(self.room.get(doc_id, [])):
+            if conn is exclude:
+                continue
             try:
-                await connection.send_text(message)
+                await conn.send_text(message)
             except Exception:
-                 self.room[doc_id].remove(connection)
-
-manager = container_manger()
+                self.room[doc_id].remove(conn)
 
 
-@app.post('/create_docs')
-def create(data : Create_Docs , db : Session = Depends(get_db) , user = Depends(Jwt_Token_Checker)):
-    return creating_docs(data , db , user)
+manager = ConnectionManager()
 
-@app.get('/get_doc/{docs_id}')
-def view_single(docs_id : UUID , db : Session = Depends(get_db) , user = Depends(Jwt_Token_Checker)):
-    return view_docs(docs_id , db , user)
 
-@app.post('/create_user')
-def create(data : User_SignUp , db : Session = Depends(get_db)):
-    return create_user(data , db)
+# ── REST endpoints ────────────────────────────────────────────────────────────
 
-@app.post('/login_user')
-def login(form_data : OAuth2PasswordRequestForm = Depends() , db : Session = Depends(get_db)):
-    return login_user(form_data , db)
+@app.post("/create_docs")
+def create(data: Create_Docs, db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
+    return creating_docs(data, db, user)
 
-@app.post('/logout')
-def user_logout(token : str = Depends(authoscheme) , db : Session = Depends(get_db)):
-    return logout(token , db)
 
-@app.get('/user_docs')
-def user_docs(db : Session = Depends(get_db) , user = Depends(Jwt_Token_Checker)):
-    return docs(db , user)
+@app.get("/get_doc/{docs_id}")
+def view_single(docs_id: UUID, db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
+    return view_docs(docs_id, db, user)
+
+
+@app.post("/create_user")
+def create_user_route(data: User_SignUp, db: Session = Depends(get_db)):
+    return create_user(data, db)
+
+
+@app.post("/login_user")
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    return login_user(form_data, db)
+
+
+@app.post("/logout")
+def user_logout(token: str = Depends(authoscheme), db: Session = Depends(get_db)):
+    return logout(token, db)
+
+
+@app.get("/user_docs")
+def user_docs(db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
+    return docs(db, user)
+
 
 @app.put("/update_docs/{docs_id}")
-def update_docs(docs_id : UUID , data : Update_Docs , user = Depends(Jwt_Token_Checker) , db: Session = Depends(get_db) ):
-    return update_Docs(docs_id  , user , db , data)
+def update_docs(docs_id: UUID, data: Update_Docs,
+                user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
+    return update_Docs(docs_id, user, db, data)
 
 
 @app.delete("/delete_docs/{docs_id}")
-def delete(docs_id : UUID , user = Depends(Jwt_Token_Checker) , db:Session=Depends(get_db)):
-    return delete_docs(docs_id , user , db)
+def delete(docs_id: UUID, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
+    return delete_docs(docs_id, user, db)
 
-@app.websocket('/ws/{doc_id}')
-async def webscoket_endpoint(websocket : WebSocket , doc_id : UUID , token : str ):
+
+@app.post("/join_docs/{doc_id}")
+def join_document(doc_id: UUID, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
+    return join_doc(doc_id, user, db)
+
+
+@app.get("/predict")
+def predict(text: str):
+    if model is None or tokenizer is None or tf is None:
+        return {"word": ""}
+
+    seq = tokenizer.texts_to_sequences([text])[0]
+    seq = tf.keras.preprocessing.sequence.pad_sequences([seq], maxlen=max_len - 1, padding="pre")
+    pred = model.predict(seq)
+    index = int(np.argmax(pred))
+    for word, i in tokenizer.word_index.items():
+        if i == index:
+            return {"word": word}
+    return {"word": ""}
+
+
+# ── WebSocket ─────────────────────────────────────────────────────────────────
+
+@app.websocket("/ws/{doc_id}")
+async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
     db = SessionLocal()
     participant = None
     session = None
 
     try:
-        user = verify_user_token(token , db)
-        user_id = user.id
-
-        session = get_or_create_session(doc_id , user_id , db)
-
-        participant = add_participant(session.id , user_id , db)
-
-        await manager.connect(doc_id , websocket)
+        user = verify_user_token(token, db)
+        session = get_or_create_session(doc_id, user.id, db)
+        participant = add_participant(session.id, user.id, db)
+        await manager.connect(doc_id, websocket)
+        await websocket.send_text(json.dumps({
+            "type": "INIT_BLOCKS",
+            "blocks": get_doc_blocks(doc_id, db),
+        }))
 
         while True:
-            data = await websocket.receive_text()
+            raw = await websocket.receive_text()
 
-            # Try to parse as JSON (control messages like END_SESSION)
             try:
-                msg = json.loads(data)
+                msg = json.loads(raw)
             except json.JSONDecodeError:
-                msg = {}  # Not JSON = it's raw HTML content, treat as regular update
+                msg = {}
 
-            if msg.get("type") == "END_SESSION":
+            msg_type = msg.get("type")
+
+            # ── End session (host only action) ──
+            if msg_type == "END_SESSION":
                 end_session(session.id, db)
-                for conn in manager.room.get(doc_id, []).copy():
-                    await conn.close(code=1000, reason="Session ended by host")
+                for conn in list(manager.room.get(doc_id, [])):
+                    try:
+                        await conn.close(code=1000, reason="Session ended by host")
+                    except Exception:
+                        pass
                 manager.room[doc_id] = []
                 break
-            
-            # Regular content update — broadcast and save to DB
-            await manager.BroadCast(doc_id, data)
 
-            doc = db.query(Document).filter(Document.id == doc_id).first()
-            if doc:
-                doc.content = data
-                db.commit()
+            # ── Block-level live update ──
+            elif msg_type == "BLOCK_UPDATE":
+                block_id  = msg.get("block_id")
+                content   = msg.get("content", "")
+
+                # Save to DB
+                update_single_block(block_id, content, db)
+
+                # Broadcast to every other client in the room
+                await manager.broadcast(doc_id, json.dumps({
+                    "type":     "BLOCK_UPDATE",
+                    "block_id": block_id,
+                    "content":  content,
+                }), exclude=websocket)
+
+            # ── Legacy plain-HTML fallback (backward compat) ──
+            else:
+                await manager.broadcast(doc_id, raw, exclude=websocket)
 
     except WebSocketDisconnect:
-        user_disconnect(participant.id , db)
-        empty_session(session.id , db)
+        if participant:
+            user_disconnect(participant.id, db)
+        if session:
+            empty_session(session.id, db)
         manager.disconnect(doc_id, websocket)
-
+    except Exception as e:
+        print("WS error:", e)
     finally:
         db.close()

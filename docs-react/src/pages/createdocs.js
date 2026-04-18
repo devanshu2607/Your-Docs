@@ -1,116 +1,106 @@
 import api from '../Auth/axios'
-import { useState, useEffect, useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import BlockEditor from './BlockEditor'
+import { getDocWsUrl } from '../config'
 import './User.css'
 
 export default function CreateDocs() {
-    const [error, SetError] = useState("")
+    const [error, setError]         = useState("")
     const [connected, setConnected] = useState(false)
-    const [docId, setDocId] = useState(null)
-    const [showCode, setShowCode] = useState(false)
-    const wsRef = useRef(null)
-    const editorRef = useRef(null)
-    const isRemoteUpdate = useRef(false) // ✅ remote update flag
+    const [docId, setDocId]         = useState(null)
+    const [showCode, setShowCode]   = useState(false)
+    const [blocks, setBlocks]       = useState([])
+    const [title, setTitle]         = useState("")
 
-    const [data, Setdata] = useState({ title: "", content: "" })
+    const wsRef     = useRef(null)
+    const liveRef   = useRef(null)
+    const blocksRef = useRef([])
+    const navigate  = useNavigate()
 
-    const editor = useEditor({
-        extensions: [StarterKit],
-        content: "<p>Write your docs...</p>",
-        onUpdate: ({ editor }) => {
-            if (isRemoteUpdate.current) return // ✅ remote update hai to send mat karo
+    useEffect(() => { blocksRef.current = blocks }, [blocks])
+    useEffect(() => () => { wsRef.current?.close() }, [])
 
-            Setdata(prev => ({ ...prev, content: editor.getHTML() }))
-
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                wsRef.current.send(editor.getHTML())
-            }
-        }
-    });
-
-    useEffect(() => {
-        editorRef.current = editor
-    }, [editor])
-
-    useEffect(() => {
-        return () => {
-            if (wsRef.current) {
-                wsRef.current.close()
-                wsRef.current = null
-            }
-        }
-    },[])
-
-    const handlecreatedocs = async () => {
+    const handleCreateDocs = async () => {
         if (docId) return
+        if (!title.trim()) return alert("Title enter karo")
         try {
-            const res = await api.post('create_docs', {
-                title: data.title,
-                content: data.content
-            })
-            setDocId(res.data.id)
-            setShowCode(false)
-        } catch (err) {
-            SetError("docs not created")
-        }
+            const res    = await api.post('/create_docs', { title, content: '' })
+            const newId  = res.data.id
+            setDocId(newId)
+            const docRes = await api.get(`/get_doc/${newId}`)
+            setBlocks(docRes.data.blocks || [])
+        } catch { setError("Doc could not be created") }
     }
 
     const handleConnect = () => {
-        if (!docId) return alert("Pehle Create Doc karo")
+        if (!docId) return alert("Pehle doc create karo")
+            const cleanId = docId.trim()
+        const token  = localStorage.getItem("token")
+        const socket = new WebSocket(getDocWsUrl(cleanId, token))
 
-        const token = localStorage.getItem("token")
-        const socket = new WebSocket(`ws://localhost:8000/ws/${docId}?token=${token}`)
-
-        socket.onopen = () => {
-            setConnected(true)
-            setShowCode(true)
-        }
+        socket.onopen = () => { setConnected(true); setShowCode(true) }
 
         socket.onmessage = (event) => {
-            const currentEditor = editorRef.current
-            if (!currentEditor) return
-            if (event.data === currentEditor.getHTML()) return // same content, skip
-
-            // ✅ Cursor reset nahi hoga — transaction use karo
-            isRemoteUpdate.current = true
-            const { from, to } = currentEditor.state.selection
-            currentEditor.commands.setContent(event.data, false)
-            // cursor restore karo
             try {
-                currentEditor.commands.setTextSelection({ from, to })
+                const msg = JSON.parse(event.data)
+                if (msg.type === 'INIT_BLOCKS') {
+                    const nextBlocks = msg.blocks || []
+                    setBlocks(nextBlocks)
+                    if (nextBlocks[0]?.content) {
+                        liveRef.current = nextBlocks[0].content
+                    }
+                    return
+                }
+
+                if (msg.type === 'BLOCK_UPDATE' && msg.block_id) {
+                    setBlocks(prev => prev.map(b =>
+                        b.id === msg.block_id ? { ...b, content: msg.content } : b
+                    ))
+
+                    if (msg.block_id === blocksRef.current[0]?.id) {
+                        liveRef.current = msg.content
+                    }
+                }
             } catch (_) {}
-            isRemoteUpdate.current = false
         }
 
-        socket.onerror = (e) => console.log("WebSocket error", e)
-        socket.onclose = () => setConnected(false)
-
-        wsRef.current = socket
+        socket.onerror  = e => console.error("WS error", e)
+        socket.onclose  = () => setConnected(false)
+        wsRef.current   = socket
     }
+
     const handleEndSession = () => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({type : "END_SESSION"}))
-        }
+        if (wsRef.current?.readyState === WebSocket.OPEN)
+            wsRef.current.send(JSON.stringify({ type: "END_SESSION" }))
         setConnected(false)
         setShowCode(false)
     }
 
+    const handleSave = async () => {
+        if (!docId) return
+        try {
+            const content = blocksRef.current[0]?.content ?? ""
+            await api.put(`/update_docs/${docId}`, { title, content })
+            navigate('/dashboard')
+        } catch { setError("Save failed") }
+    }
+
+    const handleBlocksChange = useCallback((updated) => setBlocks(updated), [])
+
     return (
         <section>
-            <div className='docs'>
+            <div className="docs">
                 <h1>Create Docs</h1>
 
-                <div className='inputBox'>
-                    <input
-                        type="text"
-                        placeholder='Enter title'
-                        value={data.title}
-                        onChange={(e) => Setdata({ ...data, title: e.target.value })}
-                    />
+                <div className="inputBox">
+                    <input type="text" placeholder="Enter title" value={title}
+                        onChange={e => setTitle(e.target.value)} />
                 </div>
 
-                <div className='btn' onClick={handlecreatedocs}>Create Doc</div>
+                {!docId && (
+                    <div className="btn" onClick={handleCreateDocs}>Create Doc</div>
+                )}
 
                 {showCode && docId && (
                     <div>
@@ -120,35 +110,32 @@ export default function CreateDocs() {
                 )}
 
                 {docId && !connected && (
-                    <div className='btn' onClick={handleConnect}>Start Live Editing</div>
+                    <div className="btn" onClick={handleConnect}>▶ Start Live Editing</div>
                 )}
 
                 {connected && (
-    <div style={{ display: "flex", gap: "10px" }}>
-        <div className='btn' style={{
-            flex: 1,
-            background: "linear-gradient(135deg, #a8edea, #fed6e3)"
-        }}>
-            Connected ✅
-        </div>
-        <div className='btn' style={{
-            flex: 1,
-            background: "linear-gradient(135deg, #ff6b6b, #ee0979)"
-        }}
-            onClick={handleEndSession}>
-            🔴 End Session
-        </div>
-    </div>
-)}
+                    <div style={{ display: "flex", gap: "10px" }}>
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#a8edea,#fed6e3)" }}>
+                            Connected ✅
+                        </div>
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#ff6b6b,#ee0979)" }}
+                            onClick={handleEndSession}>🔴 End Session
+                        </div>
+                    </div>
+                )}
 
-                <div className="toolbar">
-                    <button onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
-                    <button onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
-                </div>
+                {docId && (
+                    <BlockEditor
+                        blocks={blocks}
+                        wsRef={wsRef}
+                        liveRef={liveRef}
+                        onBlocksChange={handleBlocksChange}
+                    />
+                )}
 
-                <div className="inputBox">
-                    <EditorContent editor={editor} />
-                </div>
+                {docId && (
+                    <div className="btn" onClick={handleSave}>💾 Save Doc</div>
+                )}
 
                 {error && <p style={{ color: "red" }}>{error}</p>}
             </div>

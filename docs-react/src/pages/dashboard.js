@@ -4,34 +4,30 @@ import api from "../Auth/axios"
 import './User.css'
 
 export default function Dashboard() {
-    const [docs, setDocs] = useState([])
+    const [docs, setDocs]       = useState([])
     const [joinCode, setJoinCode] = useState("")
     const navigate = useNavigate()
 
-    useEffect(() => {
-        fetchDocs()
-    }, [])
+    useEffect(() => { fetchDocs() }, [])
 
     const fetchDocs = async () => {
         const res = await api.get("/user_docs")
-        if (Array.isArray(res.data)) {
-            setDocs(res.data)
-        } else {
-            setDocs([])
+        setDocs(Array.isArray(res.data) ? res.data : [])
+    }
+
+    const handleDeleteDocs = async (id) => {
+        try {
+            await api.delete(`/delete_docs/${id}`)
+            await fetchDocs()
+        } catch (err) {
+            // Backend returns 403 if not owner
+            alert(err.response?.data?.detail || "Cannot delete")
         }
     }
 
-    const handledeletedocs = async (id) => {
-        await api.delete(`/delete_docs/${id}`)
-        setDocs(prev => prev.filter(doc => doc.id !== id))
-    }
-
-    const  handleLogout = async() => {
-        try{
-            await api.post('/logout')
-        }catch(err){
-            console.log("error occured" , err)
-        }finally{
+    const handleLogout = async () => {
+        try { await api.post('/logout') } catch { /* ignore */ }
+        finally {
             localStorage.removeItem("token")
             navigate("/login")
         }
@@ -45,7 +41,7 @@ export default function Dashboard() {
                 <input
                     placeholder="Enter code"
                     value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value)}
+                    onChange={e => setJoinCode(e.target.value)}
                 />
                 <button onClick={() => {
                     if (!joinCode) return alert("Enter code")
@@ -53,25 +49,27 @@ export default function Dashboard() {
                 }}>
                     Join Live 🔗
                 </button>
-                 <button
-                            className="logout-btn"
-                            onClick={handleLogout}
-                        >
-                            Logout 🚪
-                        </button>
+                <button className="logout-btn" onClick={handleLogout}>Logout 🚪</button>
             </div>
 
             <div className="docContainer">
-                {docs.map((doc) => (
+                {docs.length === 0 && (
+                    <div className="emptyDocs">No documents yet. Create one!</div>
+                )}
+                {docs.map(doc => (
                     <div key={doc.id} className="docRow">
                         <div onClick={() => navigate(`/update/${doc.id}`)}>
                             <h3>{doc.title}</h3>
-                            <p dangerouslySetInnerHTML={{ __html: doc.content || "" }} />
+                            {/* preview: strip JSON brackets for readability */}
+                            <p>{String(doc.content || "").replace(/[{}"\\[\]]/g, '').slice(0, 120)}</p>
                         </div>
-                        <button onClick={() => handledeletedocs(doc.id)}>
-                            Delete
-                        </button>
-                       
+
+                        {/* 
+                            Delete button is shown here for convenience.
+                            Backend will reject with 403 if user is not owner.
+                            The UpdateDocs page also shows delete only for owners.
+                        */}
+                        <button onClick={() => handleDeleteDocs(doc.id)}>Delete</button>
                     </div>
                 ))}
             </div>
