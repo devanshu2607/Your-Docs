@@ -23,14 +23,9 @@ export default function JoinDocs() {
 
         const loadAndConnect = async () => {
             try {
+                await api.post(`/join_docs/${docId}`)
                 const res = await api.get(`/get_doc/${docId}`)
                 setBlocks(res.data.blocks || [])
-
-                const key = `copied_${docId}`
-                if (!localStorage.getItem(key)) {
-                    localStorage.setItem(key, 'true')
-                    await api.post(`/join_docs/${docId}`)
-                }
             } catch (e) { console.error("Fetch failed", e) }
 
             const token  = localStorage.getItem("token")

@@ -76,18 +76,34 @@ class ConnectionManager:
         self.room.setdefault(doc_id, []).append(websocket)
 
     def disconnect(self, doc_id, websocket: WebSocket):
-        if doc_id in self.room:
-            self.room[doc_id].discard(websocket) if hasattr(self.room[doc_id], 'discard') \
-                else (self.room[doc_id].remove(websocket) if websocket in self.room[doc_id] else None)
+        conns = self.room.get(doc_id)
+        if not conns:
+            return
+
+        if websocket in conns:
+            conns.remove(websocket)
+
+        if not conns:
+            self.room.pop(doc_id, None)
 
     async def broadcast(self, doc_id, message: str, exclude: WebSocket = None):
-        for conn in list(self.room.get(doc_id, [])):
+        conns = self.room.get(doc_id, [])
+        stale = []
+
+        for conn in list(conns):
             if conn is exclude:
                 continue
             try:
                 await conn.send_text(message)
             except Exception:
-                self.room[doc_id].remove(conn)
+                stale.append(conn)
+
+        for conn in stale:
+            if conn in conns:
+                conns.remove(conn)
+
+        if doc_id in self.room and not self.room[doc_id]:
+            self.room.pop(doc_id, None)
 
 
 manager = ConnectionManager()
@@ -166,6 +182,7 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
 
     try:
         user = verify_user_token(token, db)
+        join_doc(doc_id, user, db)
         session = get_or_create_session(doc_id, user.id, db)
         participant = add_participant(session.id, user.id, db)
         await manager.connect(doc_id, websocket)
