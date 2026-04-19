@@ -194,7 +194,10 @@ def delete_docs(docs_id, user, db: Session):
     if user_doc.role != "owner":
         raise HTTPException(403, detail="Only the owner can delete this document")
 
-    user_doc.is_deleted = True
+    db.query(UserDocument).filter(
+        UserDocument.doc_id == docs_id,
+        UserDocument.is_deleted == False
+    ).update({UserDocument.is_deleted: True}, synchronize_session=False)
     db.commit()
     return {"message": "Doc deleted successfully"}
 
