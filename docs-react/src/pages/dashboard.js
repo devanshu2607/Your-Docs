@@ -36,21 +36,31 @@ export default function Dashboard() {
     return (
         <div className="page">
             <div className="navbar">
-                <h2>PIKO DOCS</h2>
-                <button onClick={() => navigate("/create_docs")}>+ New Docs</button>
-                <input
-                    placeholder="Enter code"
-                    value={joinCode}
-                    onChange={e => setJoinCode(e.target.value)}
-                />
-                <button onClick={() => {
-                    if (!joinCode) return alert("Enter code")
-                    navigate(`/join/${joinCode}`)
-                }}>
-                    Join Live 🔗
-                </button>
-                <button className="logout-btn" onClick={handleLogout}>Logout 🚪</button>
-            </div>
+  <h2>PIKO DOCS</h2>
+
+  <div className="nav-actions">
+    <button onClick={() => navigate("/create_docs")}>
+      + New Docs
+    </button>
+
+    <input
+      placeholder="Enter code"
+      value={joinCode}
+      onChange={e => setJoinCode(e.target.value)}
+    />
+
+    <button onClick={() => {
+      if (!joinCode) return alert("Enter code")
+      navigate(`/join/${joinCode}`)
+    }}>
+      Join Live 🔗
+    </button>
+
+    <button className="logout-btn" onClick={handleLogout}>
+      Logout 🚪
+    </button>
+  </div>
+</div>
 
             <div className="docContainer">
                 {docs.length === 0 && (
@@ -58,7 +68,7 @@ export default function Dashboard() {
                 )}
                 {docs.map(doc => (
                     <div key={doc.id} className="docRow">
-                        <div onClick={() => navigate(`/update/${doc.id}`)}>
+                        <div className="doc-card-main" onClick={() => navigate(`/update/${doc.id}`)}>
                             <h3>{doc.title}</h3>
                             {/* preview: strip JSON brackets for readability */}
                             <p>{String(doc.content || "").replace(/[{}"\\[\]]/g, '').slice(0, 120)}</p>

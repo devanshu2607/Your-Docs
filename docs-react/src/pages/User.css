@@ -424,6 +424,17 @@ section {
   box-shadow: var(--shadow-lg);
   animation: slideDown 0.45s var(--ease) both;
 }
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;  /* 🔥 IMPORTANT */
+  gap: 14px;
+}
+.nav-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-20px); }
   to   { opacity: 1; transform: translateY(0);     }
