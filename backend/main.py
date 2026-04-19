@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import pickle
 import numpy as np
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -162,7 +163,14 @@ def predict(text: str):
     if model is None or tokenizer is None or tf is None:
         return {"word": ""}
 
-    seq = tokenizer.texts_to_sequences([text])[0]
+    cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
+    if not cleaned:
+        return {"word": ""}
+
+    seq = tokenizer.texts_to_sequences([cleaned])[0]
+    if not seq:
+        return {"word": ""}
+
     seq = tf.keras.preprocessing.sequence.pad_sequences([seq], maxlen=max_len - 1, padding="pre")
     pred = model.predict(seq, verbose=0)
     index = int(np.argmax(pred))
