@@ -186,14 +186,32 @@ def get_doc_blocks(docs_id, db: Session):
 def delete_docs(docs_id, user, db: Session):
     docs_id = str(docs_id)
     user_doc = _get_active_user_doc(db, user.id, docs_id)
+    existing_doc = db.query(Document).filter(Document.id == docs_id).first()
 
-    if not user_doc:
+    if not existing_doc:
+        print(f"DELETE DEBUG: doc={docs_id} missing for user={user.id}")
         raise HTTPException(404, detail="Doc not found")
 
-    # ✅ Only owner can delete
-    if user_doc.role != "owner":
+    if not user_doc and str(existing_doc.created_by) != str(user.id):
+        print(
+            f"DELETE DEBUG: no membership row doc={docs_id} user={user.id} "
+            f"created_by={existing_doc.created_by}"
+        )
+        raise HTTPException(404, detail="Doc not found")
+
+    is_owner = str(existing_doc.created_by) == str(user.id) or (user_doc and user_doc.role == "owner")
+    if not is_owner:
+        print(
+            f"DELETE DEBUG: forbidden doc={docs_id} user={user.id} "
+            f"created_by={existing_doc.created_by} role={getattr(user_doc, 'role', None)} "
+            f"is_deleted={getattr(user_doc, 'is_deleted', None)}"
+        )
         raise HTTPException(403, detail="Only the owner can delete this document")
 
+    print(
+        f"DELETE DEBUG: owner delete doc={docs_id} user={user.id} "
+        f"created_by={existing_doc.created_by} role={getattr(user_doc, 'role', None)}"
+    )
     db.query(UserDocument).filter(
         UserDocument.doc_id == docs_id,
         UserDocument.is_deleted == False
