@@ -36,7 +36,7 @@ export default function Dashboard() {
     return (
         <div className="page">
             <div className="navbar">
-  <h2>PIKO DOCS</h2>
+  <h2>CLAY</h2>
 
   <div className="nav-actions">
     <button onClick={() => navigate("/create_docs")}>
