@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 websockets
-tensorflow
+tensorflow==2.15.1
 sqlalchemy
 python-jose
 psycopg2-binary
