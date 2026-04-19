@@ -28,6 +28,26 @@ def _split_into_blocks(content: str) -> list[str]:
     return blocks
 
 
+def _get_active_user_doc(db: Session, user_id, docs_id):
+    """Return the best active membership row, preferring owner over editor."""
+    docs_id = str(docs_id)
+    rows = (
+        db.query(UserDocument)
+        .filter(
+            UserDocument.user_id == user_id,
+            UserDocument.doc_id == docs_id,
+            UserDocument.is_deleted == False
+        )
+        .all()
+    )
+
+    for row in rows:
+        if row.role == "owner":
+            return row
+
+    return rows[0] if rows else None
+
+
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
 def creating_docs(data, db: Session, user):
@@ -50,12 +70,8 @@ def creating_docs(data, db: Session, user):
 
 
 def view_docs(docs_id, db: Session, user):
-    docs_id = str(docs_id) 
-    user_doc = db.query(UserDocument).filter(
-        UserDocument.user_id == user.id,
-        UserDocument.doc_id == docs_id,
-        UserDocument.is_deleted == False
-    ).first()
+    docs_id = str(docs_id)
+    user_doc = _get_active_user_doc(db, user.id, docs_id)
 
     if not user_doc:
         raise HTTPException(404, detail="No Access")
@@ -101,11 +117,7 @@ def update_Docs(docs_id, user, db: Session, data):
     """
     docs_id = str(docs_id)
     user_id = user.id
-    user_doc = db.query(UserDocument).filter(
-        UserDocument.user_id == user_id,
-        UserDocument.doc_id == docs_id,
-        UserDocument.is_deleted == False
-    ).first()
+    user_doc = _get_active_user_doc(db, user_id, docs_id)
 
     if not user_doc:
         raise HTTPException(403, detail="No access")
@@ -173,10 +185,7 @@ def get_doc_blocks(docs_id, db: Session):
 
 def delete_docs(docs_id, user, db: Session):
     docs_id = str(docs_id)
-    user_doc = db.query(UserDocument).filter(
-        UserDocument.user_id == user.id,
-        UserDocument.doc_id == docs_id
-    ).first()
+    user_doc = _get_active_user_doc(db, user.id, docs_id)
 
     if not user_doc:
         raise HTTPException(404, detail="Doc not found")
@@ -258,11 +267,23 @@ def end_session(session_id, db: Session):
 
 def join_doc(docs_id, user, db: Session):
     docs_id = str(docs_id)
-    exists = db.query(UserDocument).filter(
+    existing_rows = db.query(UserDocument).filter(
         UserDocument.user_id == user.id,
         UserDocument.doc_id == docs_id
-    ).first()
+    ).all()
 
-    if not exists:
-        db.add(UserDocument(user_id=user.id, doc_id=docs_id, role="editor"))
-        db.commit()
+    active_row = next((row for row in existing_rows if not row.is_deleted), None)
+    if active_row:
+        return active_row
+
+    reusable_row = next((row for row in existing_rows if row.role != "owner"), None)
+    if reusable_row:
+        reusable_row.is_deleted = False
+        reusable_row.role = reusable_row.role or "editor"
+    else:
+        reusable_row = UserDocument(user_id=user.id, doc_id=docs_id, role="editor")
+        db.add(reusable_row)
+
+    db.commit()
+    db.refresh(reusable_row)
+    return reusable_row

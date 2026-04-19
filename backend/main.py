@@ -164,11 +164,22 @@ def predict(text: str):
 
     seq = tokenizer.texts_to_sequences([text])[0]
     seq = tf.keras.preprocessing.sequence.pad_sequences([seq], maxlen=max_len - 1, padding="pre")
-    pred = model.predict(seq)
+    pred = model.predict(seq, verbose=0)
     index = int(np.argmax(pred))
-    for word, i in tokenizer.word_index.items():
-        if i == index:
+
+    # Prefer direct reverse lookup; if the model's output index is off by one
+    # relative to tokenizer indices, fall back to index + 1.
+    word = tokenizer.index_word.get(index) or tokenizer.index_word.get(index + 1, "")
+    if word:
+        return {"word": word}
+
+    # Final fallback: scan top predictions for the first mapped token.
+    for candidate in np.argsort(pred[0])[::-1]:
+        candidate = int(candidate)
+        word = tokenizer.index_word.get(candidate) or tokenizer.index_word.get(candidate + 1, "")
+        if word:
             return {"word": word}
+
     return {"word": ""}
 
 
