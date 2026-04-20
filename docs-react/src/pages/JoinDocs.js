@@ -24,7 +24,7 @@ export default function JoinDocs() {
         const loadAndConnect = async () => {
             try {
                 await api.post(`/join_docs/${docId}`)
-                const res = await api.get(`/get_doc/${docId}`)
+                const res = await api.post(`/get_doc/${docId}`)
                 setBlocks(res.data.blocks || [])
             } catch (e) { console.error("Fetch failed", e) }
 

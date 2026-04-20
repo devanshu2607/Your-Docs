@@ -12,22 +12,15 @@ from Services.Docs import (
     add_participant, user_disconnect, get_or_create_session, empty_session,
     join_doc, update_single_block, get_doc_blocks
 )
+from Services.Prediction import prediction_service
 from Services.User import create_user, login_user, logout
 from uuid import UUID
 from Utils.dependency import Jwt_Token_Checker, verify_user_token, authoscheme
 from fastapi.middleware.cors import CORSMiddleware
 
-import pickle
-import numpy as np
-import re
 from dotenv import load_dotenv
 
 load_dotenv()
-
-try:
-    import tensorflow as tf
-except Exception:
-    tf = None
 
 
 def get_allowed_origins():
@@ -42,17 +35,6 @@ def get_allowed_origins():
         origins = ["http://localhost:3000"]
 
     return origins
-
-model = None
-tokenizer = None
-if tf is not None:
-    try:
-        model = tf.keras.models.load_model("lstm_model.h5")
-        with open("lstm_tokenizer.pkl", "rb") as f:
-            tokenizer = pickle.load(f)
-    except Exception as exc:
-        print("Prediction model unavailable:", exc)
-max_len = 20
 
 app = FastAPI()
 Base.metadata.create_all(bind=Engine)
@@ -110,6 +92,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+@app.on_event("startup")
+def warm_prediction_model():
+    prediction_service.start_background_loading()
+
+
 # ── REST endpoints ────────────────────────────────────────────────────────────
 
 @app.post("/create_docs")
@@ -117,7 +104,7 @@ def create(data: Create_Docs, db: Session = Depends(get_db), user=Depends(Jwt_To
     return creating_docs(data, db, user)
 
 
-@app.get("/get_doc/{docs_id}")
+@app.post("/get_doc/{docs_id}")
 def view_single(docs_id: UUID, db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
     return view_docs(docs_id, db, user)
 
@@ -137,7 +124,7 @@ def user_logout(token: str = Depends(authoscheme), db: Session = Depends(get_db)
     return logout(token, db)
 
 
-@app.get("/user_docs")
+@app.post("/user_docs")
 def user_docs(db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
     return docs(db, user)
 
@@ -160,35 +147,7 @@ def join_document(doc_id: UUID, user=Depends(Jwt_Token_Checker), db: Session = D
 
 @app.get("/predict")
 def predict(text: str):
-    if model is None or tokenizer is None or tf is None:
-        return {"word": ""}
-
-    cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
-    if not cleaned:
-        return {"word": ""}
-
-    seq = tokenizer.texts_to_sequences([cleaned])[0]
-    if not seq:
-        return {"word": ""}
-
-    seq = tf.keras.preprocessing.sequence.pad_sequences([seq], maxlen=max_len - 1, padding="pre")
-    pred = model.predict(seq, verbose=0)
-    index = int(np.argmax(pred))
-
-    # Prefer direct reverse lookup; if the model's output index is off by one
-    # relative to tokenizer indices, fall back to index + 1.
-    word = tokenizer.index_word.get(index) or tokenizer.index_word.get(index + 1, "")
-    if word:
-        return {"word": word}
-
-    # Final fallback: scan top predictions for the first mapped token.
-    for candidate in np.argsort(pred[0])[::-1]:
-        candidate = int(candidate)
-        word = tokenizer.index_word.get(candidate) or tokenizer.index_word.get(candidate + 1, "")
-        if word:
-            return {"word": word}
-
-    return {"word": ""}
+    return {"word": prediction_service.predict_next_word(text)}
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────

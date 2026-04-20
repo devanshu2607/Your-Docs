@@ -11,7 +11,7 @@ export default function Dashboard() {
     useEffect(() => { fetchDocs() }, [])
 
     const fetchDocs = async () => {
-        const res = await api.get("/user_docs")
+        const res = await api.post("/user_docs")
         setDocs(Array.isArray(res.data) ? res.data : [])
     }
 

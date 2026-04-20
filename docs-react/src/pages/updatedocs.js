@@ -26,7 +26,7 @@ export default function UpdateDocs() {
 
     useEffect(() => {
         if (!id) return
-        api.get(`/get_doc/${id}`)
+        api.post(`/get_doc/${id}`)
             .then(res => {
                 setTitle(res.data.title || "")
                 setBlocks(res.data.blocks || [])

@@ -28,7 +28,7 @@ export default function CreateDocs() {
             const res    = await api.post('/create_docs', { title, content: '' })
             const newId  = res.data.id
             setDocId(newId)
-            const docRes = await api.get(`/get_doc/${newId}`)
+            const docRes = await api.post(`/get_doc/${newId}`)
             setBlocks(docRes.data.blocks || [])
         } catch { setError("Doc could not be created") }
     }
