@@ -1,0 +1,38 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - "docs-react/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "docs-react/**"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: docs-react
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: docs-react/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        env:
+          CI: "false"
+        run: npm run build
