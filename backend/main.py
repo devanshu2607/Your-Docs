@@ -145,9 +145,14 @@ def join_document(doc_id: UUID, user=Depends(Jwt_Token_Checker), db: Session = D
     return join_doc(doc_id, user, db)
 
 
+@app.get("/predict/status")
+def prediction_status():
+    return prediction_service.status_payload()
+
+
 @app.get("/predict")
 def predict(text: str):
-    return {"word": prediction_service.predict_next_word(text)}
+    return prediction_service.predict_next_word(text)
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────

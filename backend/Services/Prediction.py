@@ -18,18 +18,22 @@ class PredictionService:
         self._loaded = False
         self._base_dir = Path(__file__).resolve().parent.parent
         self._services_dir = Path(__file__).resolve().parent
-        self._model_path = self._resolve_asset_path("lstm_model.h5")
-        self._tokenizer_path = self._resolve_asset_path("lstm_tokenizer.pkl")
+        self._model_path = self._resolve_asset_path("lstm_model.keras", "lstm_model.h5")
+        self._tokenizer_path = self._resolve_asset_path("tokens.pkl", "lstm_tokenizer.pkl")
 
-    def _resolve_asset_path(self, filename: str) -> Path:
-        candidates = [
-            self._base_dir / filename,
-            self._services_dir / filename,
-            self._base_dir / "next_word_prediction" / filename,
-        ]
+    def _resolve_asset_path(self, *filenames: str) -> Path:
+        candidates = []
+        for filename in filenames:
+            candidates.extend([
+                self._base_dir / filename,
+                self._services_dir / filename,
+                self._base_dir / "next_word_prediction" / filename,
+            ])
+
         for candidate in candidates:
             if candidate.exists():
                 return candidate
+
         return candidates[0]
 
     def start_background_loading(self):
@@ -72,18 +76,36 @@ class PredictionService:
                 return "error"
             return "idle"
 
-    def predict_next_word(self, text: str) -> str:
+    def status_payload(self):
+        with self._lock:
+            if self._loaded:
+                status = "ready"
+            elif self._loading:
+                status = "loading"
+            elif self.load_error is not None:
+                status = "error"
+            else:
+                status = "idle"
+
+            return {
+                "status": status,
+                "model_path": str(self._model_path),
+                "tokenizer_path": str(self._tokenizer_path),
+                "error": str(self.load_error) if self.load_error else None,
+            }
+
+    def predict_next_word(self, text: str):
         if not self._loaded:
             self.start_background_loading()
-            return ""
+            return {"status": self.status(), "word": ""}
 
         cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
         if not cleaned:
-            return ""
+            return {"status": "ready", "word": ""}
 
         seq = self.tokenizer.texts_to_sequences([cleaned])[0]
         if not seq:
-            return ""
+            return {"status": "ready", "word": ""}
 
         seq = self.tf.keras.preprocessing.sequence.pad_sequences(
             [seq],
@@ -95,15 +117,15 @@ class PredictionService:
 
         word = self.tokenizer.index_word.get(index) or self.tokenizer.index_word.get(index + 1, "")
         if word:
-            return word
+            return {"status": "ready", "word": word}
 
         for candidate in np.argsort(pred[0])[::-1]:
             candidate = int(candidate)
             word = self.tokenizer.index_word.get(candidate) or self.tokenizer.index_word.get(candidate + 1, "")
             if word:
-                return word
+                return {"status": "ready", "word": word}
 
-        return ""
+        return {"status": "ready", "word": ""}
 
 
 prediction_service = PredictionService()
