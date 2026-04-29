@@ -18,7 +18,7 @@ pipeline {
     }
 
     stages {
-    
+
         stage('Prepare Env') {
             steps {
                 sh '''

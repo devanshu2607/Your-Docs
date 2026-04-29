@@ -10,13 +10,13 @@ This repo is prepared for a full Render Blueprint deployment:
 6. `docs-frontend`
 7. `docs-db` PostgreSQL database
 
-The gateway is the public backend entrypoint. The other backend services stay on Render's private network and are reached through `hostport` references in [render.yaml](/C:/Your%20Docs/render.yaml:1).
+The gateway is the public backend entrypoint. The other backend services stay on Render's private network and are reached through `hostport` references in [backend/render.yaml](/C:/Your%20Docs/backend/render.yaml:1).
 
 ### Before deploy
 
 1. Push this repo to GitHub.
 2. In Render, create a new Blueprint and point it at the repo.
-3. Render will detect [render.yaml](/C:/Your%20Docs/render.yaml:1).
+3. Point Render at [backend/render.yaml](/C:/Your%20Docs/backend/render.yaml:1) during Blueprint setup.
 4. Add the real `SECRET_KEY` value in the Render dashboard, or keep it as a synced secret from the Blueprint.
 5. Deploy once, then confirm the frontend and gateway public URLs.
 
