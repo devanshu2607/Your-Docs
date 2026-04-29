@@ -8,6 +8,10 @@ pipeline {
     environment {
         BACKEND_DIR = 'backend'
         RENDER_BACKEND_URL = 'https://your-docs.onrender.com'
+        RENDER_AUTH_SERVICE_DEPLOY_HOOK = credentials('render-auth-service-deploy-hook')
+        RENDER_DOCS_SERVICE_DEPLOY_HOOK = credentials('render-docs-service-deploy-hook')
+        RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK = credentials('render-websocket-service-deploy-hook')
+        RENDER_PREDICTION_SERVICE_DEPLOY_HOOK = credentials('render-prediction-service-deploy-hook')
         RENDER_GATEWAY_SERVICE_DEPLOY_HOOK = credentials('render-docs-backend-deploy-hook')
         AUTH_SERVICE_URL = 'http://auth-service:8000'
         DOCS_SERVICE_URL = 'http://docs-service:8000'
@@ -56,7 +60,14 @@ EOF
         stage('Trigger Render Deploy') {
             steps {
                 sh '''
-                    curl -fsS -X POST "$RENDER_GATEWAY_SERVICE_DEPLOY_HOOK"
+                    for hook in \
+                        "$RENDER_AUTH_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_DOCS_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_PREDICTION_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_GATEWAY_SERVICE_DEPLOY_HOOK"; do
+                        curl -fsS -X POST "$hook"
+                    done
                 '''
             }
         }
@@ -64,11 +75,11 @@ EOF
         stage('Health Check') {
             steps {
                 sh '''
-                    for i in 1 2 3 4 5 6 7 8 9 10; do
+                    for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
                         if curl -fsS "$RENDER_BACKEND_URL/health"; then
                             exit 0
                         fi
-                        sleep 15
+                        sleep 20
                     done
                     echo "Render backend health check failed"
                     exit 1
