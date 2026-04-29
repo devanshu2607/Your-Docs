@@ -37,9 +37,9 @@ services:
       - key: SECRET_KEY
         sync: false
       - key: FRONTEND_URL
-        value: https://docs-frontend.onrender.com
+        value: https://your-docs.onrender.com
       - key: CORS_ORIGINS
-        value: https://docs-frontend.onrender.com,http://localhost:3000
+        value: https://your-docs.onrender.com,http://localhost:3000
 
   - type: web
     name: websocket-service
@@ -99,9 +99,9 @@ services:
           type: web
           property: hostport
       - key: FRONTEND_URL
-        value: https://docs-frontend.onrender.com
+        value: https://your-docs.onrender.com
       - key: CORS_ORIGINS
-        value: https://docs-frontend.onrender.com,http://localhost:3000
+        value: https://your-docs.onrender.com,http://localhost:3000
 
   - type: web
     name: docs-frontend
@@ -114,6 +114,6 @@ services:
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://docs-backend.onrender.com
+        value: https://your-docs.onrender.com
       - key: REACT_APP_WS_URL
-        value: wss://docs-backend.onrender.com
+        value: wsss://your-docs.onrender.com
