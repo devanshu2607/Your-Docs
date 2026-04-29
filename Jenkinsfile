@@ -18,12 +18,7 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'master', url: 'https://github.com/devanshu2607/Your-Docs'
-            }
-        }
-
+    
         stage('Prepare Env') {
             steps {
                 sh '''
@@ -99,17 +94,6 @@ EOF
 
     post {
         always {
-            sh '''
-                cd "$BACKEND_DIR"
-                docker-compose ps
-            '''
-            sh 'rm -f backend/.env || true'
-        }
-        failure {
-            sh '''
-                cd "$BACKEND_DIR"
-                docker-compose logs --tail 50
-            '''
             sh 'rm -f backend/.env || true'
         }
     }
