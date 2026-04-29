@@ -6,6 +6,7 @@ services:
   - type: web
     name: auth-service
     runtime: docker
+    autoDeployTrigger: off
     repo: https://github.com/devanshu2607/Your-Docs
     branch: master
     dockerContext: backend
@@ -22,6 +23,7 @@ services:
   - type: web
     name: docs-service
     runtime: docker
+    autoDeployTrigger: off
     repo: https://github.com/devanshu2607/Your-Docs
     branch: master
     dockerContext: backend
@@ -42,6 +44,7 @@ services:
   - type: web
     name: websocket-service
     runtime: docker
+    autoDeployTrigger: off
     repo: https://github.com/devanshu2607/Your-Docs
     branch: master
     dockerContext: backend
@@ -58,6 +61,7 @@ services:
   - type: web
     name: prediction-service
     runtime: docker
+    autoDeployTrigger: off
     repo: https://github.com/devanshu2607/Your-Docs
     branch: master
     dockerContext: backend
@@ -67,6 +71,7 @@ services:
   - type: web
     name: docs-backend
     runtime: docker
+    autoDeployTrigger: off
     repo: https://github.com/devanshu2607/Your-Docs
     branch: master
     dockerContext: backend
@@ -101,6 +106,7 @@ services:
   - type: web
     name: docs-frontend
     runtime: static
+    autoDeployTrigger: off
     repo: https://github.com/devanshu2607/Your-Docs
     branch: master
     rootDir: docs-react

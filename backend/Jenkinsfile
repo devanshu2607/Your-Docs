@@ -7,6 +7,12 @@ pipeline {
 
     environment {
         BACKEND_DIR = 'backend'
+        RENDER_BACKEND_URL = 'https://docs-backend.onrender.com'
+        RENDER_AUTH_SERVICE_DEPLOY_HOOK = credentials('render-auth-service-deploy-hook')
+        RENDER_DOCS_SERVICE_DEPLOY_HOOK = credentials('render-docs-service-deploy-hook')
+        RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK = credentials('render-websocket-service-deploy-hook')
+        RENDER_PREDICTION_SERVICE_DEPLOY_HOOK = credentials('render-prediction-service-deploy-hook')
+        RENDER_GATEWAY_SERVICE_DEPLOY_HOOK = credentials('render-docs-backend-deploy-hook')
         AUTH_SERVICE_URL = 'http://auth-service:8000'
         DOCS_SERVICE_URL = 'http://docs-service:8000'
         WS_SERVICE_URL = 'ws://websocket-service:8000'
@@ -66,11 +72,17 @@ EOF
             }
         }
 
-        stage('Deploy Backend') {
+        stage('Trigger Render Deploy') {
             steps {
                 sh '''
-                    cd "$BACKEND_DIR"
-                    docker-compose up -d --force-recreate
+                    for hook in \
+                        "$RENDER_AUTH_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_DOCS_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_PREDICTION_SERVICE_DEPLOY_HOOK" \
+                        "$RENDER_GATEWAY_SERVICE_DEPLOY_HOOK"; do
+                        curl -fsS -X POST "$hook"
+                    done
                 '''
             }
         }
@@ -78,14 +90,13 @@ EOF
         stage('Health Check') {
             steps {
                 sh '''
-                    cd "$BACKEND_DIR"
                     for i in 1 2 3 4 5 6 7 8 9 10; do
-                        if docker-compose exec -T gateway-service python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read().decode())"; then
+                        if curl -fsS "$RENDER_BACKEND_URL/health"; then
                             exit 0
                         fi
-                        sleep 5
+                        sleep 15
                     done
-                    echo "Gateway health check failed"
+                    echo "Render backend health check failed"
                     exit 1
                 '''
             }
