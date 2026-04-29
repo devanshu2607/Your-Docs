@@ -78,12 +78,21 @@ def view_docs(docs_id, db: Session, user):
 
 
 def docs(db: Session, user):
-    return (
+    rows = (
         db.query(Document)
         .join(UserDocument)
         .filter(UserDocument.user_id == user.id, UserDocument.is_deleted == False)
         .all()
     ) or []
+    return [
+        {
+            "id": str(doc.id),
+            "title": doc.title,
+            "content": doc.content or "",
+            "created_by": str(doc.created_by) if doc.created_by else None,
+        }
+        for doc in rows
+    ]
 
 
 def update_docs(docs_id, user, db: Session, data):
