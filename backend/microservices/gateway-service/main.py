@@ -1,5 +1,6 @@
 import asyncio
 import os
+import json
 from typing import Optional
 
 import httpx  # type: ignore[import]
@@ -73,7 +74,12 @@ async def proxy_json_or_form(
         else:
             body: Optional[dict] = None
             if request.method not in {"GET", "DELETE"}:
-                body = await request.json()
+                raw_body = await request.body()
+                if raw_body:
+                    try:
+                        body = json.loads(raw_body.decode("utf-8"))
+                    except json.JSONDecodeError:
+                        body = None
             response = await client.request(
                 request.method,
                 f"{target_base}{target_path}",
