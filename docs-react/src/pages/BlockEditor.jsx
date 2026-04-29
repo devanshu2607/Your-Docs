@@ -138,7 +138,12 @@ function SuggestionPlugin() {
                 debounceRef.current = setTimeout(async () => {
                     try {
                         const res = await api.get('/predict', { params: { text: last3 } })
-                        setSuggestion(res.data?.word || '')
+                        const nextWord =
+                            res.data?.word?.trim() ||
+                            res.data?.prediction?.trim() ||
+                            res.data?.next_word?.trim() ||
+                            ''
+                        setSuggestion(nextWord)
                     } catch { setSuggestion('') }
                 }, 300)
             })
@@ -165,7 +170,7 @@ function SuggestionPlugin() {
 
     if (!suggestion) return null
     return (
-        <div style={{
+        <div className="suggestion-overlay" style={{
             position: 'absolute', bottom: '12px', right: '16px',
             color: '#9ca3af', fontSize: '12px', fontStyle: 'italic',
             pointerEvents: 'none', userSelect: 'none',

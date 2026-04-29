@@ -884,7 +884,19 @@ section {
 .lex-nested-li   { list-style: circle; }
 .lex-para        { margin: 2px 0; }
 
-.suggestion-overlay { color: var(--text-muted); font-style: italic; pointer-events: none; }
+.suggestion-overlay {
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+  z-index: 20;
+  max-width: 45%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 999px;
+  border: 1px solid rgba(108,71,255,0.20);
+  box-shadow: 0 8px 20px rgba(108,71,255,0.14);
+}
 
 /* ════════════════════════════════════
    UTILITIES

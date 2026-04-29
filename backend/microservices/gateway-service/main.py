@@ -17,7 +17,17 @@ def env_url(name: str, default: str) -> str:
 def service_url(prefix: str, default_url: str, scheme: str) -> str:
     hostport = os.getenv(f"{prefix}_HOSTPORT", "").strip()
     if hostport:
-        if hostport.startswith("http://") or hostport.startswith("https://") or hostport.startswith("ws://") or hostport.startswith("wss://"):
+        if hostport.startswith(("http://", "https://", "ws://", "wss://")):
+            if scheme == "ws":
+                if hostport.startswith("https://"):
+                    return hostport.replace("https://", "wss://", 1).rstrip("/")
+                if hostport.startswith("http://"):
+                    return hostport.replace("http://", "ws://", 1).rstrip("/")
+            if scheme == "http":
+                if hostport.startswith("wss://"):
+                    return hostport.replace("wss://", "https://", 1).rstrip("/")
+                if hostport.startswith("ws://"):
+                    return hostport.replace("ws://", "http://", 1).rstrip("/")
             return hostport.rstrip("/")
         return f"{scheme}://{hostport}".rstrip("/")
     return env_url(f"{prefix}_URL", default_url)
