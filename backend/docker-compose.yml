@@ -7,10 +7,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8000}
-      DOCS_SERVICE_URL: ${DOCS_SERVICE_URL:-http://docs-service:8000}
-      WS_SERVICE_URL: ${WS_SERVICE_URL:-ws://websocket-service:8000}
-      PREDICTION_SERVICE_URL: ${PREDICTION_SERVICE_URL:-http://prediction-service:8000}
+      AUTH_SERVICE_HOSTPORT: ${AUTH_SERVICE_HOSTPORT:-auth-service:8000}
+      DOCS_SERVICE_HOSTPORT: ${DOCS_SERVICE_HOSTPORT:-docs-service:8000}
+      WS_SERVICE_HOSTPORT: ${WS_SERVICE_HOSTPORT:-websocket-service:8000}
+      PREDICTION_SERVICE_HOSTPORT: ${PREDICTION_SERVICE_HOSTPORT:-prediction-service:8000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     depends_on:

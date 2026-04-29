@@ -37,9 +37,9 @@ services:
       - key: SECRET_KEY
         sync: false
       - key: FRONTEND_URL
-        value: https://your-docs.onrender.com
+        value: https://your-docs-omega.vercel.app
       - key: CORS_ORIGINS
-        value: https://your-docs.onrender.com,http://localhost:3000
+        value: https://your-docs-omega.vercel.app,http://localhost:3000
 
   - type: web
     name: websocket-service
@@ -99,9 +99,9 @@ services:
           type: web
           property: hostport
       - key: FRONTEND_URL
-        value: https://your-docs.onrender.com
+        value: https://your-docs-omega.vercel.app
       - key: CORS_ORIGINS
-        value: https://your-docs.onrender.com,http://localhost:3000
+        value: https://your-docs-omega.vercel.app,http://localhost:3000
 
   - type: web
     name: docs-frontend
@@ -116,4 +116,4 @@ services:
       - key: REACT_APP_API_URL
         value: https://your-docs.onrender.com
       - key: REACT_APP_WS_URL
-        value: wsss://your-docs.onrender.com
+        value: wss://your-docs.onrender.com
