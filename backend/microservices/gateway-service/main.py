@@ -13,10 +13,17 @@ def env_url(name: str, default: str) -> str:
     return os.getenv(name, default).rstrip("/")
 
 
-AUTH_SERVICE_URL = env_url("AUTH_SERVICE_URL", "http://127.0.0.1:8001")
-DOCS_SERVICE_URL = env_url("DOCS_SERVICE_URL", "http://127.0.0.1:8002")
-WS_SERVICE_URL = env_url("WS_SERVICE_URL", "ws://127.0.0.1:8003")
-PREDICTION_SERVICE_URL = env_url("PREDICTION_SERVICE_URL", "http://127.0.0.1:8004")
+def service_url(prefix: str, default_url: str, scheme: str) -> str:
+    hostport = os.getenv(f"{prefix}_HOSTPORT", "").strip()
+    if hostport:
+        return f"{scheme}://{hostport}".rstrip("/")
+    return env_url(f"{prefix}_URL", default_url)
+
+
+AUTH_SERVICE_URL = service_url("AUTH_SERVICE", "http://127.0.0.1:8001", "http")
+DOCS_SERVICE_URL = service_url("DOCS_SERVICE", "http://127.0.0.1:8002", "http")
+WS_SERVICE_URL = service_url("WS_SERVICE", "ws://127.0.0.1:8003", "ws")
+PREDICTION_SERVICE_URL = service_url("PREDICTION_SERVICE", "http://127.0.0.1:8004", "http")
 
 
 def get_allowed_origins():
