@@ -7,6 +7,8 @@ import os
 load_dotenv()
 
 DATABASE_URL = os.getenv("SQL_DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("SQL_DATABASE_URL is not set")
 
 Engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
