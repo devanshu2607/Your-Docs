@@ -1,5 +1,14 @@
 const DEFAULT_API_URL = "http://127.0.0.1:8000";
 
+function normalizeWsUrl(url) {
+    const trimmed = (url || "").replace(/\/$/, "");
+    if (!trimmed) return trimmed;
+    if (trimmed.startsWith("wss://") || trimmed.startsWith("ws://")) return trimmed;
+    if (trimmed.startsWith("https://")) return trimmed.replace("https://", "wss://");
+    if (trimmed.startsWith("http://")) return trimmed.replace("http://", "ws://");
+    return `ws://${trimmed}`;
+}
+
 export function getApiBaseUrl() {
     return (process.env.REACT_APP_API_URL || DEFAULT_API_URL).replace(/\/$/, "");
 }
@@ -7,7 +16,7 @@ export function getApiBaseUrl() {
 export function getWsBaseUrl() {
     const explicitWsUrl = process.env.REACT_APP_WS_URL;
     if (explicitWsUrl) {
-        return explicitWsUrl.replace(/\/$/, "");
+        return normalizeWsUrl(explicitWsUrl);
     }
 
     const apiUrl = getApiBaseUrl();

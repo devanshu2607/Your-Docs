@@ -14,23 +14,39 @@ def env_url(name: str, default: str) -> str:
     return os.getenv(name, default).rstrip("/")
 
 
+def normalize_service_url(raw_url: str, scheme: str) -> str:
+    raw_url = raw_url.strip().rstrip("/")
+    if not raw_url:
+        return raw_url
+
+    if scheme == "ws":
+        if raw_url.startswith("https://"):
+            return raw_url.replace("https://", "wss://", 1)
+        if raw_url.startswith("http://"):
+            return raw_url.replace("http://", "ws://", 1)
+        if raw_url.startswith("ws://") or raw_url.startswith("wss://"):
+            return raw_url
+        return f"ws://{raw_url}"
+
+    if raw_url.startswith("wss://"):
+        return raw_url.replace("wss://", "https://", 1)
+    if raw_url.startswith("ws://"):
+        return raw_url.replace("ws://", "http://", 1)
+    if raw_url.startswith("http://") or raw_url.startswith("https://"):
+        return raw_url
+    return f"http://{raw_url}"
+
+
 def service_url(prefix: str, default_url: str, scheme: str) -> str:
     hostport = os.getenv(f"{prefix}_HOSTPORT", "").strip()
     if hostport:
-        if hostport.startswith(("http://", "https://", "ws://", "wss://")):
-            if scheme == "ws":
-                if hostport.startswith("https://"):
-                    return hostport.replace("https://", "wss://", 1).rstrip("/")
-                if hostport.startswith("http://"):
-                    return hostport.replace("http://", "ws://", 1).rstrip("/")
-            if scheme == "http":
-                if hostport.startswith("wss://"):
-                    return hostport.replace("wss://", "https://", 1).rstrip("/")
-                if hostport.startswith("ws://"):
-                    return hostport.replace("ws://", "http://", 1).rstrip("/")
-            return hostport.rstrip("/")
-        return f"{scheme}://{hostport}".rstrip("/")
-    return env_url(f"{prefix}_URL", default_url)
+        return normalize_service_url(hostport, scheme)
+
+    env_value = os.getenv(f"{prefix}_URL", "").strip()
+    if env_value:
+        return normalize_service_url(env_value, scheme)
+
+    return normalize_service_url(default_url, scheme)
 
 
 AUTH_SERVICE_URL = service_url("AUTH_SERVICE", "http://127.0.0.1:8001", "http")

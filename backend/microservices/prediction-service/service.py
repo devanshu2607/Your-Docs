@@ -117,6 +117,30 @@ class PredictionService:
                 "error": str(self.load_error) if self.load_error else None,
             }
 
+    def _fallback_word(self, text: str) -> str:
+        if not self.tokenizer:
+            return ""
+        counts = getattr(self.tokenizer, "word_counts", {}) or {}
+        if not counts:
+            return ""
+
+        last_word = ""
+        cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
+        if cleaned:
+            last_word = cleaned.split()[-1]
+
+        candidates = sorted(
+            counts.items(),
+            key=lambda item: (-int(item[1]), item[0]),
+        )
+        for word, _count in candidates:
+            if len(word) < 2:
+                continue
+            if word == last_word:
+                continue
+            return word
+        return ""
+
     def predict_next_word(self, text: str):
         if not self._loaded:
             self.start_background_loading()
@@ -147,7 +171,8 @@ class PredictionService:
             if word:
                 return {"status": "ready", "word": word}
 
-        return {"status": "ready", "word": ""}
+        fallback = self._fallback_word(cleaned)
+        return {"status": "ready", "word": fallback}
 
 
 prediction_service = PredictionService()
