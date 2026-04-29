@@ -103,9 +103,4 @@ EOF
         }
     }
 
-    post {
-        always {
-            sh 'rm -f backend/.env || true'
-        }
-    }
 }
