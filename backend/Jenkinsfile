@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         BACKEND_DIR = 'backend'
-        RENDER_BACKEND_URL = 'https://docs-backend.onrender.com'
+        RENDER_BACKEND_URL = 'https://your-docs.onrender.com'
         RENDER_GATEWAY_SERVICE_DEPLOY_HOOK = credentials('render-docs-backend-deploy-hook')
         AUTH_SERVICE_URL = 'http://auth-service:8000'
         DOCS_SERVICE_URL = 'http://docs-service:8000'
