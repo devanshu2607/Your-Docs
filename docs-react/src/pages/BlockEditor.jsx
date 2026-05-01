@@ -171,13 +171,18 @@ function SuggestionPlugin() {
     if (!suggestion) return null
     return (
         <div className="suggestion-overlay" style={{
-            position: 'absolute', bottom: '12px', right: '16px',
-            color: '#9ca3af', fontSize: '12px', fontStyle: 'italic',
+            position: 'absolute', top: '12px', right: '16px',
+            color: '#4338ca', fontSize: '12px', fontStyle: 'normal',
             pointerEvents: 'none', userSelect: 'none',
-            background: 'rgba(245,240,232,0.95)', padding: '3px 10px',
-            borderRadius: '4px', border: '1px solid var(--paper-deep)', zIndex: 10,
+            background: 'rgba(255,255,255,0.96)', padding: '8px 12px',
+            borderRadius: '999px', border: '1px solid rgba(108,71,255,0.25)', zIndex: 30,
+            boxShadow: '0 10px 24px rgba(108,71,255,0.16)',
+            maxWidth: 'calc(100% - 32px)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
         }}>
-            Tab → <b style={{ color: 'var(--ink)' }}>{suggestion}</b>
+            Prediction: <b style={{ color: 'var(--purple)' }}>{suggestion}</b> <span style={{ color: 'var(--text-muted)' }}>Tab to insert</span>
         </div>
     )
 }

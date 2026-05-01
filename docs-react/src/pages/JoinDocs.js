@@ -66,6 +66,11 @@ export default function JoinDocs() {
             socket.onerror  = e => console.error("WS error", e)
             socket.onclose  = (ev) => {
                 setJoined(false)
+                console.warn("WS closed", ev?.code, ev?.reason)
+                if (ev?.code === 4401) {
+                    alert("WebSocket auth failed. Please log in again.")
+                    return
+                }
                 if (ev.reason === "Session ended by host") {
                     alert("The host has ended this session.")
                     navigate("/dashboard")

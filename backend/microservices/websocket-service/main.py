@@ -74,7 +74,13 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
     session = None
 
     try:
-        user = verify_user_token(token, db)
+        try:
+            user = verify_user_token(token, db)
+        except Exception as exc:
+            print("WS auth failed:", exc)
+            await websocket.close(code=4401, reason="Invalid token")
+            return
+
         join_doc(doc_id, user, db)
         session = get_or_create_session(doc_id, user.id, db)
         participant = add_participant(session.id, user.id, db)
@@ -123,5 +129,9 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
         manager.disconnect(doc_id, websocket)
     except Exception as exc:
         print("WS error:", exc)
+        try:
+            await websocket.close(code=1011, reason="WebSocket server error")
+        except Exception:
+            pass
     finally:
         db.close()

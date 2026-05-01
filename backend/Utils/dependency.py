@@ -6,6 +6,7 @@ from Database.DataBase import get_db
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os 
+from uuid import UUID
 
 
 load_dotenv()
@@ -18,8 +19,12 @@ authoscheme = OAuth2PasswordBearer(tokenUrl='login_user')
 def Jwt_Token_Checker(token : Session = Depends(authoscheme) , db : Session = Depends(get_db)):
     payload = jwt.decode(token , SECRET_KEY , algorithms=[ALOGORITHM])
     user_id = payload.get("user_id")
+    try:
+        user_uuid = UUID(str(user_id))
+    except Exception:
+        raise HTTPException(401, detail="user not matched ")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_uuid).first()
 
     if not user :
         raise HTTPException(401 , detail="user not matched ")
@@ -29,8 +34,12 @@ def verify_user_token(token: str, db: Session):
     # decode token
     payload = jwt.decode(token,SECRET_KEY , algorithms=[ALOGORITHM])   # jo bhi tera logic hai
     user_id = payload.get("user_id")
+    try:
+        user_uuid = UUID(str(user_id))
+    except Exception:
+        raise Exception("Invalid user")
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_uuid).first()
 
     if not user:
         raise Exception("Invalid user")

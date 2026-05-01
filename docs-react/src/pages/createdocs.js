@@ -75,8 +75,13 @@ export default function CreateDocs() {
         }
 
         socket.onerror  = e => console.error("WS error", e)
-        socket.onclose  = () => {
+        socket.onclose  = (ev) => {
             setConnected(false)
+            console.warn("WS closed", ev?.code, ev?.reason)
+            if (ev?.code === 4401) {
+                setError("WebSocket auth failed. Please log in again.")
+                return
+            }
             if (manualCloseRef.current) return
             reconnectRef.current = setTimeout(() => {
                 if (!manualCloseRef.current) handleConnect()
