@@ -1,5 +1,6 @@
 import json
 import sys
+import traceback
 from pathlib import Path
 from uuid import UUID
 
@@ -30,7 +31,6 @@ class ConnectionManager:
         self.room: dict = {}
 
     async def connect(self, doc_id, websocket: WebSocket):
-        await websocket.accept()
         self.room.setdefault(doc_id, []).append(websocket)
 
     def disconnect(self, doc_id, websocket: WebSocket):
@@ -74,6 +74,7 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
     session = None
 
     try:
+        await websocket.accept()
         try:
             user = verify_user_token(token, db)
         except Exception as exc:
@@ -81,9 +82,16 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
             await websocket.close(code=4401, reason="Invalid token")
             return
 
-        join_doc(doc_id, user, db)
-        session = get_or_create_session(doc_id, user.id, db)
-        participant = add_participant(session.id, user.id, db)
+        try:
+            join_doc(doc_id, user, db)
+            session = get_or_create_session(doc_id, user.id, db)
+            participant = add_participant(session.id, user.id, db)
+        except Exception as exc:
+            print("WS bootstrap failed:", exc)
+            traceback.print_exc()
+            await websocket.close(code=1011, reason="Session bootstrap failed")
+            return
+
         await manager.connect(doc_id, websocket)
         await websocket.send_text(json.dumps({
             "type": "INIT_BLOCKS",
@@ -129,6 +137,7 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
         manager.disconnect(doc_id, websocket)
     except Exception as exc:
         print("WS error:", exc)
+        traceback.print_exc()
         try:
             await websocket.close(code=1011, reason="WebSocket server error")
         except Exception:

@@ -24,7 +24,20 @@ export function getWsBaseUrl() {
         return normalized;
     }
 
-    return DEFAULT_WS_DIRECT_URL;
+    const apiUrl = getApiBaseUrl();
+    if (apiUrl.includes("your-docs.onrender.com")) {
+        return DEFAULT_WS_DIRECT_URL;
+    }
+
+    if (apiUrl.startsWith("https://")) {
+        return apiUrl.replace("https://", "wss://");
+    }
+
+    if (apiUrl.startsWith("http://")) {
+        return apiUrl.replace("http://", "ws://");
+    }
+
+    return "ws://127.0.0.1:8003";
 }
 
 export function getDocWsUrl(docId, token) {
