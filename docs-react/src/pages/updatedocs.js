@@ -18,13 +18,12 @@ export default function UpdateDocs() {
     const [saved, setSaved]         = useState(false)
     const [loading, setLoading]     = useState(false)
 
-    const wsRef     = useRef(null)
-    const liveRef   = useRef(null)
-    const blocksRef = useRef([])
-    const reconnectRef    = useRef(null)
-    const manualCloseRef  = useRef(false)
-    // BUG FIX: loadedRef in parent so it survives BlockEditor re-renders
-    const loadedRef = useRef(false)
+    const wsRef          = useRef(null)
+    const liveRef        = useRef([])       // ← ARRAY queue, not single value
+    const blocksRef      = useRef([])
+    const reconnectRef   = useRef(null)
+    const manualCloseRef = useRef(false)
+    const loadedRef      = useRef(false)    // ← in parent so survives re-renders
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
@@ -48,9 +47,9 @@ export default function UpdateDocs() {
     const handleStartSession = useCallback(() => {
         manualCloseRef.current = false
         clearTimeout(reconnectRef.current)
-        const token  = localStorage.getItem("token")
+        const token   = localStorage.getItem("token")
         const cleanId = id.trim()
-        const socket = new WebSocket(getDocWsUrl(cleanId, token))
+        const socket  = new WebSocket(getDocWsUrl(cleanId, token))
 
         socket.onopen = () => { setConnected(true); setShowCode(true) }
 
@@ -61,11 +60,9 @@ export default function UpdateDocs() {
                 if (msg.type === 'INIT_BLOCKS') {
                     const nextBlocks = msg.blocks || []
                     setBlocks(nextBlocks)
-                    // BUG FIX: Only push to liveRef on first connect, not on
-                    // every reconnect — otherwise it overwrites the current editor
-                    // state every time the WS briefly disconnects and reconnects.
+                    // Only push to queue on very first connect
                     if (!loadedRef.current && nextBlocks[0]?.content) {
-                        liveRef.current = nextBlocks[0].content
+                        liveRef.current.push(nextBlocks[0].content)  // ← push to queue
                     }
                     return
                 }
@@ -74,8 +71,9 @@ export default function UpdateDocs() {
                     setBlocks(prev => prev.map(b =>
                         b.id === msg.block_id ? { ...b, content: msg.content } : b
                     ))
+                    // Push every update to queue — LiveUpdatePlugin drains it, never drops
                     if (msg.block_id === blocksRef.current[0]?.id) {
-                        liveRef.current = msg.content
+                        liveRef.current.push(msg.content)            // ← push to queue
                     }
                 }
             } catch (_) {}

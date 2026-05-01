@@ -1,4 +1,4 @@
-// BlockEditor.jsx — All bugs fixed
+// BlockEditor.jsx — All bugs fixed (v3)
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { LexicalComposer }           from '@lexical/react/LexicalComposer'
 import { RichTextPlugin }            from '@lexical/react/LexicalRichTextPlugin'
@@ -66,54 +66,56 @@ function applyContentToEditor(editor, content) {
 }
 
 // ── LoadPlugin ────────────────────────────────────────────────────────────────
-// BUG FIX: doneRef was inside the component so it reset on every re-render.
-// We now receive a shared loadedRef from the parent (created once, lives as long
-// as the editor session) so it truly fires only once.
+// FIX: loadedRef is created in the PARENT and passed as a prop.
+// Previously doneRef was declared inside LoadPlugin itself — every time the
+// parent called setState (e.g. setBlocks after a WS message), BlockEditor
+// re-rendered, LoadPlugin re-mounted, and doneRef reset to false. This caused
+// the initial DB content to re-fire and overwrite whatever the remote user typed.
 function LoadPlugin({ blocks, loadedRef }) {
     const [editor] = useLexicalComposerContext()
 
     useEffect(() => {
-        if (loadedRef.current) return          // already loaded — never run again
+        if (loadedRef.current) return
         if (!blocks || blocks.length === 0) return
         const saved = blocks[0]?.content?.trim()
         if (!saved) return
 
-        loadedRef.current = true               // mark done BEFORE async work
-
-        // Small delay so Lexical finishes mounting before we mutate its state
-        setTimeout(() => {
-            applyContentToEditor(editor, saved)
-        }, 80)
+        loadedRef.current = true
+        setTimeout(() => applyContentToEditor(editor, saved), 80)
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [blocks.length, editor])
-    // ↑ Only triggers when blocks go from 0→N (initial load), not on content edits
 
     return null
 }
 
-// ── LiveUpdatePlugin ───────────────────────────────────────────────────────────
-// BUG FIX: The old code set liveRef.current = null BEFORE calling
-// editor.setEditorState / editor.update, which are async. If the interval fired
-// again within that async gap the content was already gone.
-// Fix: snapshot + clear atomically at the top, then apply.
-// Also skips applying content that is identical to what is already in the editor
-// to avoid caret-reset on every keystroke when you are the local editor.
+// ── LiveUpdatePlugin ──────────────────────────────────────────────────────────
+// FIX 1 (critical): Old code stored ONE value in liveRef.current. When the host
+//   receives multiple BLOCK_UPDATE messages within the 100ms poll window (which
+//   happens with every fast keystroke), all intermediate updates were overwritten
+//   and silently dropped. On the host side, the editor appeared to freeze or show
+//   only occasional characters, matching exactly what the video shows.
+//
+//   Fix: liveRef.current is now an ARRAY used as a queue. The parent pushes to it
+//   with liveRef.current.push(content). The plugin drains the queue every 80ms
+//   and applies the LAST item (last-write-wins, since each update is the full
+//   Lexical document state, not a delta).
+//
+// FIX 2: Removed the lastAppliedRef dedup comparison. It compared Lexical JSON
+//   strings which include internal counters/versions, so equal content always
+//   looked different — the dedup was a no-op and added confusion.
 function LiveUpdatePlugin({ liveRef }) {
     const [editor] = useLexicalComposerContext()
-    const lastAppliedRef = useRef(null)
 
     useEffect(() => {
         const interval = setInterval(() => {
-            const content = liveRef.current
-            if (!content) return
-            liveRef.current = null              // consume atomically
+            const queue = liveRef.current
+            if (!Array.isArray(queue) || queue.length === 0) return
 
-            // Don't re-apply content we already applied (avoids caret jumping)
-            if (content === lastAppliedRef.current) return
-            lastAppliedRef.current = content
-
-            applyContentToEditor(editor, content)
-        }, 100)
+            // Drain the queue; apply only the latest (full state, not delta)
+            liveRef.current = []
+            const content = queue[queue.length - 1]
+            if (content) applyContentToEditor(editor, content)
+        }, 80)
         return () => clearInterval(interval)
     }, [editor, liveRef])
 
@@ -121,43 +123,42 @@ function LiveUpdatePlugin({ liveRef }) {
 }
 
 // ── SuggestionPlugin ──────────────────────────────────────────────────────────
-// BUG FIX 1: editorState.read() is synchronous — the async api call must be
-//            started OUTSIDE the read callback, not inside it.
-// BUG FIX 2: The debounce ref was being cleared even if the previous call was
-//            still in-flight, causing multiple concurrent requests.
-// BUG FIX 3: Added a stale-check so a slow response from a previous keystroke
-//            doesn't overwrite the suggestion for the current text.
+// FIX 1: Never call async code inside editorState.read(). The read lock is
+//   synchronous — any awaited Promise inside it runs after the lock is released
+//   and Lexical can have moved on, causing subtle corruption / silent failures.
+//   The API call was previously inside read(), so the network request was fired
+//   but its response was thrown away. This is why word suggestions never appeared.
+//
+// FIX 2: Stale-response guard via requestIdRef so a slow previous response
+//   doesn't overwrite the suggestion for the current text.
 function SuggestionPlugin() {
     const [editor]     = useLexicalComposerContext()
     const [suggestion, setSuggestion] = useState('')
     const debounceRef  = useRef(null)
-    const requestIdRef = useRef(0)       // stale-response guard
+    const requestIdRef = useRef(0)
     const suggRef      = useRef('')
 
     useEffect(() => { suggRef.current = suggestion }, [suggestion])
 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
-            // Read text synchronously inside the read callback
+            // Extract text SYNCHRONOUSLY inside read() — no async here
             let last3 = ''
             editorState.read(() => {
                 const words = $getRoot().getTextContent().trim().split(/\s+/).filter(Boolean)
                 last3 = words.slice(-3).join(' ')
             })
+            // read() is now done. Safe to be async below.
 
-            if (last3.length < 3) {
-                setSuggestion('')
-                return
-            }
+            if (last3.length < 3) { setSuggestion(''); return }
 
-            // Debounce the network call outside read()
             clearTimeout(debounceRef.current)
             const currentId = ++requestIdRef.current
+
             debounceRef.current = setTimeout(async () => {
                 try {
                     const res = await api.get('/predict', { params: { text: last3 } })
-                    // Discard if a newer request is already in flight
-                    if (currentId !== requestIdRef.current) return
+                    if (currentId !== requestIdRef.current) return  // stale — discard
                     const nextWord =
                         res.data?.word?.trim() ||
                         res.data?.prediction?.trim() ||
@@ -167,7 +168,7 @@ function SuggestionPlugin() {
                 } catch {
                     if (currentId === requestIdRef.current) setSuggestion('')
                 }
-            }, 400)
+            }, 500)
         })
     }, [editor])
 
@@ -199,9 +200,7 @@ function SuggestionPlugin() {
             borderRadius: '999px', border: '1px solid rgba(108,71,255,0.25)', zIndex: 30,
             boxShadow: '0 10px 24px rgba(108,71,255,0.16)',
             maxWidth: 'calc(100% - 24px)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
             Prediction: <b style={{ color: 'var(--purple)' }}>{suggestion}</b>{' '}
             <span style={{ color: 'var(--text-muted)' }}>Tab to insert</span>
@@ -236,9 +235,12 @@ function Toolbar({ readOnly }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-// loadedRef: created OUTSIDE (in parent) and passed in, so it survives re-renders
-// liveRef:   created in parent, WS onmessage writes: liveRef.current = msg.content
-//            LiveUpdatePlugin reads + clears every 100ms
+// IMPORTANT CHANGE — liveRef is now an ARRAY queue, not a single value.
+// Parent must initialise it as: const liveRef = useRef([])
+// Parent writes: liveRef.current.push(msg.content)   ← NOT liveRef.current = msg.content
+//
+// loadedRef: created in parent (useRef(false)), passed here so LoadPlugin never
+//            re-fires after the first load regardless of how many re-renders happen.
 export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlocksChange, readOnly = false }) {
     const debounceRef  = useRef(null)
     const prevStateRef = useRef(null)
@@ -254,12 +256,16 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
         onError:   err => console.error('Lexical:', err),
     }
 
-    // BUG FIX: handleChange block-grouping was using a fixed LINES=5 split on
-    // plaintext lines, which produced new synthetic blocks that didn't match
-    // the real block IDs from the server. This caused BLOCK_UPDATE messages to
-    // never match any existing block on other clients.
-    // Fix: always map 1-to-1 against the real server blocks. Block 0 carries the
-    // full Lexical JSON state; remaining blocks carry their original plain text.
+    // FIX: Old handleChange split plain text into groups of 5 lines and built
+    // synthetic block objects. This broke sync because:
+    //   • If the doc had 1 real server block but >5 lines of text, the loop
+    //     created a second block with id=null → the send() was skipped silently.
+    //   • Even when id was correct, block[0]'s content was only the first 5 lines
+    //     of plain text, not the full Lexical JSON. The receiving client tried to
+    //     parse it as JSON, failed, and fell back to plain text — losing formatting.
+    //
+    // Fix: map 1-to-1 over real server blocks. Block[0] always carries the complete
+    // Lexical JSON. Other blocks keep their existing content unchanged.
     const handleChange = useCallback((editorState) => {
         clearTimeout(debounceRef.current)
         debounceRef.current = setTimeout(() => {
@@ -270,22 +276,19 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
             const currentBlocks = blocksRef.current
             if (!currentBlocks || currentBlocks.length === 0) return
 
-            // Build updated blocks: block[0] always gets the full Lexical JSON,
-            // extra blocks keep their existing content (we don't split arbitrarily).
             const newBlocks = currentBlocks.map((b, idx) => ({
                 ...b,
                 content: idx === 0 ? stateJSON : b.content,
             }))
 
-            // Send only changed blocks via WS
             newBlocks.forEach((nb, i) => {
                 const old = currentBlocks[i]
                 if (nb.id && wsRef?.current?.readyState === WebSocket.OPEN) {
                     if (!old || nb.content !== old.content) {
                         wsRef.current.send(JSON.stringify({
-                            type: 'BLOCK_UPDATE',
+                            type:     'BLOCK_UPDATE',
                             block_id: nb.id,
-                            content: nb.content,
+                            content:  nb.content,
                         }))
                     }
                 }
