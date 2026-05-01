@@ -1,5 +1,4 @@
 const DEFAULT_API_URL = "http://127.0.0.1:8000";
-const DEFAULT_WS_DIRECT_URL = "wss://websocket-service-7hek.onrender.com";
 
 function normalizeWsUrl(url) {
     const trimmed = (url || "").replace(/\/$/, "");
@@ -17,18 +16,10 @@ export function getApiBaseUrl() {
 export function getWsBaseUrl() {
     const explicitWsUrl = process.env.REACT_APP_WS_URL;
     if (explicitWsUrl) {
-        const normalized = normalizeWsUrl(explicitWsUrl);
-        if (normalized.includes("your-docs.onrender.com")) {
-            return DEFAULT_WS_DIRECT_URL;
-        }
-        return normalized;
+        return normalizeWsUrl(explicitWsUrl);
     }
 
     const apiUrl = getApiBaseUrl();
-    if (apiUrl.includes("your-docs.onrender.com")) {
-        return DEFAULT_WS_DIRECT_URL;
-    }
-
     if (apiUrl.startsWith("https://")) {
         return apiUrl.replace("https://", "wss://");
     }
