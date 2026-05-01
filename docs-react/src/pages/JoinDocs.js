@@ -15,6 +15,8 @@ export default function JoinDocs() {
     const wsRef     = useRef(null)
     const liveRef   = useRef(null)   // WS writes here → LiveUpdatePlugin reads it
     const blocksRef = useRef([])
+    const reconnectRef = useRef(null)
+    const manualCloseRef = useRef(false)
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
@@ -27,6 +29,9 @@ export default function JoinDocs() {
                 const res = await api.post(`/get_doc/${docId}`)
                 setBlocks(res.data.blocks || [])
             } catch (e) { console.error("Fetch failed", e) }
+
+            manualCloseRef.current = false
+            clearTimeout(reconnectRef.current)
 
             const token  = localStorage.getItem("token")
             const cleanId = docId.trim()
@@ -64,6 +69,12 @@ export default function JoinDocs() {
                 if (ev.reason === "Session ended by host") {
                     alert("The host has ended this session.")
                     navigate("/dashboard")
+                    return
+                }
+                if (!manualCloseRef.current) {
+                    reconnectRef.current = setTimeout(() => {
+                        if (!manualCloseRef.current) loadAndConnect()
+                    }, 1500)
                 }
             }
 
@@ -71,10 +82,16 @@ export default function JoinDocs() {
         }
 
         loadAndConnect()
-        return () => wsRef.current?.close()
+        return () => {
+            manualCloseRef.current = true
+            clearTimeout(reconnectRef.current)
+            wsRef.current?.close()
+        }
     }, [docId, navigate])
 
     const handleLeave = () => {
+        manualCloseRef.current = true
+        clearTimeout(reconnectRef.current)
         wsRef.current?.close()
         navigate("/dashboard")
     }

@@ -21,6 +21,8 @@ export default function UpdateDocs() {
     const wsRef     = useRef(null)
     const liveRef   = useRef(null)   // WS writes here → LiveUpdatePlugin reads it
     const blocksRef = useRef([])
+    const reconnectRef = useRef(null)
+    const manualCloseRef = useRef(false)
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
@@ -35,9 +37,15 @@ export default function UpdateDocs() {
             .catch(() => setError("Doc load failed"))
     }, [id])
 
-    useEffect(() => () => { wsRef.current?.close() }, [])
+    useEffect(() => () => {
+        manualCloseRef.current = true
+        clearTimeout(reconnectRef.current)
+        wsRef.current?.close()
+    }, [])
 
     const handleStartSession = () => {
+        manualCloseRef.current = false
+        clearTimeout(reconnectRef.current)
         const token  = localStorage.getItem("token")
         const cleanId = id.trim()
         const socket = new WebSocket(getDocWsUrl(cleanId, token))
@@ -71,11 +79,21 @@ export default function UpdateDocs() {
         }
 
         socket.onerror  = e => console.error("WS error", e)
-        socket.onclose  = () => { setConnected(false); setShowCode(false) }
+        socket.onclose  = () => {
+            setConnected(false)
+            setShowCode(false)
+            if (!manualCloseRef.current) {
+                reconnectRef.current = setTimeout(() => {
+                    if (!manualCloseRef.current) handleStartSession()
+                }, 1500)
+            }
+        }
         wsRef.current   = socket
     }
 
     const handleEndSession = () => {
+        manualCloseRef.current = true
+        clearTimeout(reconnectRef.current)
         if (wsRef.current?.readyState === WebSocket.OPEN)
             wsRef.current.send(JSON.stringify({ type: "END_SESSION" }))
         setConnected(false)

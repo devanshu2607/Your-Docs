@@ -16,10 +16,16 @@ export default function CreateDocs() {
     const wsRef     = useRef(null)
     const liveRef   = useRef(null)
     const blocksRef = useRef([])
+    const reconnectRef = useRef(null)
+    const manualCloseRef = useRef(false)
     const navigate  = useNavigate()
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
-    useEffect(() => () => { wsRef.current?.close() }, [])
+    useEffect(() => () => {
+        manualCloseRef.current = true
+        clearTimeout(reconnectRef.current)
+        wsRef.current?.close()
+    }, [])
 
     const handleCreateDocs = async () => {
         if (docId) return
@@ -35,7 +41,10 @@ export default function CreateDocs() {
 
     const handleConnect = () => {
         if (!docId) return alert("Pehle doc create karo")
-            const cleanId = docId.trim()
+        manualCloseRef.current = false
+        clearTimeout(reconnectRef.current)
+
+        const cleanId = docId.trim()
         const token  = localStorage.getItem("token")
         const socket = new WebSocket(getDocWsUrl(cleanId, token))
 
@@ -66,11 +75,19 @@ export default function CreateDocs() {
         }
 
         socket.onerror  = e => console.error("WS error", e)
-        socket.onclose  = () => setConnected(false)
+        socket.onclose  = () => {
+            setConnected(false)
+            if (manualCloseRef.current) return
+            reconnectRef.current = setTimeout(() => {
+                if (!manualCloseRef.current) handleConnect()
+            }, 1500)
+        }
         wsRef.current   = socket
     }
 
     const handleEndSession = () => {
+        manualCloseRef.current = true
+        clearTimeout(reconnectRef.current)
         if (wsRef.current?.readyState === WebSocket.OPEN)
             wsRef.current.send(JSON.stringify({ type: "END_SESSION" }))
         setConnected(false)
