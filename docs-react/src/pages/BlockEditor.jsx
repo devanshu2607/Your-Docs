@@ -171,13 +171,13 @@ function SuggestionPlugin() {
     if (!suggestion) return null
     return (
         <div className="suggestion-overlay" style={{
-            position: 'fixed', top: '18px', right: '18px',
+            position: 'absolute', top: '12px', right: '12px',
             color: '#4338ca', fontSize: '12px', fontStyle: 'normal',
             pointerEvents: 'none', userSelect: 'none',
             background: 'rgba(255,255,255,0.96)', padding: '8px 12px',
             borderRadius: '999px', border: '1px solid rgba(108,71,255,0.25)', zIndex: 30,
             boxShadow: '0 10px 24px rgba(108,71,255,0.16)',
-            maxWidth: 'min(420px, calc(100vw - 32px))',
+            maxWidth: 'calc(100% - 24px)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
