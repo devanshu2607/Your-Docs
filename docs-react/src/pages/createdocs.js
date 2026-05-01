@@ -16,8 +16,11 @@ export default function CreateDocs() {
     const wsRef     = useRef(null)
     const liveRef   = useRef(null)
     const blocksRef = useRef([])
-    const reconnectRef = useRef(null)
-    const manualCloseRef = useRef(false)
+    const reconnectRef    = useRef(null)
+    const manualCloseRef  = useRef(false)
+    // BUG FIX: loadedRef must live in the parent so it doesn't reset when
+    // BlockEditor re-renders. Passed into BlockEditor as a prop.
+    const loadedRef = useRef(false)
     const navigate  = useNavigate()
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
@@ -29,7 +32,7 @@ export default function CreateDocs() {
 
     const handleCreateDocs = async () => {
         if (docId) return
-        if (!title.trim()) return alert("Title enter karo")
+        if (!title.trim()) return alert("Please enter a title")
         try {
             const res    = await api.post('/create_docs', { title, content: '' })
             const newId  = res.data.id
@@ -39,8 +42,8 @@ export default function CreateDocs() {
         } catch { setError("Doc could not be created") }
     }
 
-    const handleConnect = () => {
-        if (!docId) return alert("Pehle doc create karo")
+    const handleConnect = useCallback(() => {
+        if (!docId) return alert("Please create a doc first")
         manualCloseRef.current = false
         clearTimeout(reconnectRef.current)
 
@@ -53,20 +56,24 @@ export default function CreateDocs() {
         socket.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data)
+
                 if (msg.type === 'INIT_BLOCKS') {
                     const nextBlocks = msg.blocks || []
                     setBlocks(nextBlocks)
-                    if (nextBlocks[0]?.content) {
+                    // BUG FIX: Only push to liveRef if we haven't loaded yet.
+                    // After initial load, live updates come via BLOCK_UPDATE.
+                    if (!loadedRef.current && nextBlocks[0]?.content) {
                         liveRef.current = nextBlocks[0].content
                     }
                     return
                 }
 
                 if (msg.type === 'BLOCK_UPDATE' && msg.block_id) {
+                    // Update React state so save button captures latest content
                     setBlocks(prev => prev.map(b =>
                         b.id === msg.block_id ? { ...b, content: msg.content } : b
                     ))
-
+                    // Push to liveRef so LiveUpdatePlugin can update Lexical's tree
                     if (msg.block_id === blocksRef.current[0]?.id) {
                         liveRef.current = msg.content
                     }
@@ -74,8 +81,8 @@ export default function CreateDocs() {
             } catch (_) {}
         }
 
-        socket.onerror  = e => console.error("WS error", e)
-        socket.onclose  = (ev) => {
+        socket.onerror = e => console.error("WS error", e)
+        socket.onclose = (ev) => {
             setConnected(false)
             console.warn("WS closed", ev?.code, ev?.reason)
             if (ev?.code === 4401) {
@@ -87,8 +94,9 @@ export default function CreateDocs() {
                 if (!manualCloseRef.current) handleConnect()
             }, 1500)
         }
-        wsRef.current   = socket
-    }
+        wsRef.current = socket
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [docId])
 
     const handleEndSession = () => {
         manualCloseRef.current = true
@@ -151,6 +159,7 @@ export default function CreateDocs() {
                         blocks={blocks}
                         wsRef={wsRef}
                         liveRef={liveRef}
+                        loadedRef={loadedRef}
                         onBlocksChange={handleBlocksChange}
                     />
                 )}

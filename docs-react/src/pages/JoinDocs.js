@@ -13,10 +13,12 @@ export default function JoinDocs() {
     const [blocks, setBlocks] = useState([])
 
     const wsRef     = useRef(null)
-    const liveRef   = useRef(null)   // WS writes here → LiveUpdatePlugin reads it
+    const liveRef   = useRef(null)
     const blocksRef = useRef([])
-    const reconnectRef = useRef(null)
-    const manualCloseRef = useRef(false)
+    const reconnectRef    = useRef(null)
+    const manualCloseRef  = useRef(false)
+    // BUG FIX: loadedRef in parent so it survives BlockEditor re-renders
+    const loadedRef = useRef(false)
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
@@ -33,19 +35,23 @@ export default function JoinDocs() {
             manualCloseRef.current = false
             clearTimeout(reconnectRef.current)
 
-            const token  = localStorage.getItem("token")
+            const token   = localStorage.getItem("token")
             const cleanId = docId.trim()
-            const socket = new WebSocket(getDocWsUrl(cleanId, token))
+            const socket  = new WebSocket(getDocWsUrl(cleanId, token))
 
             socket.onopen = () => setJoined(true)
 
             socket.onmessage = (event) => {
                 try {
                     const msg = JSON.parse(event.data)
+
                     if (msg.type === 'INIT_BLOCKS') {
                         const nextBlocks = msg.blocks || []
                         setBlocks(nextBlocks)
-                        if (nextBlocks[0]?.content) {
+                        // BUG FIX: Only push to liveRef on the very first connect.
+                        // Subsequent reconnects must NOT overwrite what is already
+                        // in the editor.
+                        if (!loadedRef.current && nextBlocks[0]?.content) {
                             liveRef.current = nextBlocks[0].content
                         }
                         return
@@ -55,7 +61,6 @@ export default function JoinDocs() {
                         setBlocks(prev => prev.map(b =>
                             b.id === msg.block_id ? { ...b, content: msg.content } : b
                         ))
-
                         if (msg.block_id === blocksRef.current[0]?.id) {
                             liveRef.current = msg.content
                         }
@@ -63,8 +68,8 @@ export default function JoinDocs() {
                 } catch (_) {}
             }
 
-            socket.onerror  = e => console.error("WS error", e)
-            socket.onclose  = (ev) => {
+            socket.onerror = e => console.error("WS error", e)
+            socket.onclose = (ev) => {
                 setJoined(false)
                 console.warn("WS closed", ev?.code, ev?.reason)
                 if (ev?.code === 4401) {
@@ -118,6 +123,7 @@ export default function JoinDocs() {
                             blocks={blocks}
                             wsRef={wsRef}
                             liveRef={liveRef}
+                            loadedRef={loadedRef}
                             onBlocksChange={handleBlocksChange}
                         />
 
