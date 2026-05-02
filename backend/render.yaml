@@ -114,6 +114,7 @@ services:
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://your-docs.onrender.com
-      - key: REACT_APP_WS_URL
-        value: wss://your-docs.onrender.com
+        fromService:
+          name: docs-backend
+          type: web
+          property: url

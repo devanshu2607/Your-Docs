@@ -79,40 +79,57 @@ def extract_auth_header(request: Request) -> dict:
     return {"Authorization": auth} if auth else {}
 
 
+def upstream_unavailable_response(service_name: str, target_url: str, exc: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content={
+            "detail": f"{service_name} is unavailable",
+            "target": target_url,
+            "error": str(exc),
+        },
+    )
+
+
 async def proxy_json_or_form(
     request: Request,
+    service_name: str,
     target_base: str,
     target_path: str,
     *,
     form_encoded: bool = False,
 ) -> Response:
     headers = extract_auth_header(request)
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        if form_encoded:
-            form = await request.form()
-            response = await client.request(
-                request.method,
-                f"{target_base}{target_path}",
-                data=dict(form),
-                params=request.query_params,
-                headers=headers,
-            )
-        else:
-            body: Optional[dict] = None
-            if request.method not in {"GET", "DELETE"}:
-                raw_body = await request.body()
-                if raw_body:
-                    try:
-                        body = json.loads(raw_body.decode("utf-8"))
-                    except json.JSONDecodeError:
-                        body = None
-            response = await client.request(
-                request.method,
-                f"{target_base}{target_path}",
-                json=body,
-                params=request.query_params,
-                headers=headers,
-            )
+    target_url = f"{target_base}{target_path}"
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            if form_encoded:
+                form = await request.form()
+                response = await client.request(
+                    request.method,
+                    target_url,
+                    data=dict(form),
+                    params=request.query_params,
+                    headers=headers,
+                )
+            else:
+                body: Optional[dict] = None
+                if request.method not in {"GET", "DELETE"}:
+                    raw_body = await request.body()
+                    if raw_body:
+                        try:
+                            body = json.loads(raw_body.decode("utf-8"))
+                        except json.JSONDecodeError:
+                            body = None
+                response = await client.request(
+                    request.method,
+                    target_url,
+                    json=body,
+                    params=request.query_params,
+                    headers=headers,
+                )
+    except httpx.HTTPError as exc:
+        return upstream_unavailable_response(service_name, target_url, exc)
 
     content_type = response.headers.get("content-type", "")
     if "application/json" in content_type:
@@ -127,57 +144,93 @@ def health():
 
 @app.post("/create_user")
 async def create_user(request: Request):
-    return await proxy_json_or_form(request, AUTH_SERVICE_URL, "/create_user")
+    return await proxy_json_or_form(request, "auth-service", AUTH_SERVICE_URL, "/create_user")
 
 
 @app.post("/login_user")
 async def login_user(request: Request):
-    return await proxy_json_or_form(request, AUTH_SERVICE_URL, "/login_user", form_encoded=True)
+    return await proxy_json_or_form(
+        request,
+        "auth-service",
+        AUTH_SERVICE_URL,
+        "/login_user",
+        form_encoded=True,
+    )
 
 
 @app.post("/logout")
 async def logout(request: Request):
-    return await proxy_json_or_form(request, AUTH_SERVICE_URL, "/logout")
+    return await proxy_json_or_form(request, "auth-service", AUTH_SERVICE_URL, "/logout")
 
 
 @app.post("/create_docs")
 async def create_docs(request: Request):
-    return await proxy_json_or_form(request, DOCS_SERVICE_URL, "/create_docs")
+    return await proxy_json_or_form(request, "docs-service", DOCS_SERVICE_URL, "/create_docs")
 
 
 @app.post("/get_doc/{docs_id}")
 async def get_doc(docs_id: str, request: Request):
-    return await proxy_json_or_form(request, DOCS_SERVICE_URL, f"/get_doc/{docs_id}")
+    return await proxy_json_or_form(
+        request,
+        "docs-service",
+        DOCS_SERVICE_URL,
+        f"/get_doc/{docs_id}",
+    )
 
 
 @app.post("/user_docs")
 async def user_docs(request: Request):
-    return await proxy_json_or_form(request, DOCS_SERVICE_URL, "/user_docs")
+    return await proxy_json_or_form(request, "docs-service", DOCS_SERVICE_URL, "/user_docs")
 
 
 @app.put("/update_docs/{docs_id}")
 async def update_docs(docs_id: str, request: Request):
-    return await proxy_json_or_form(request, DOCS_SERVICE_URL, f"/update_docs/{docs_id}")
+    return await proxy_json_or_form(
+        request,
+        "docs-service",
+        DOCS_SERVICE_URL,
+        f"/update_docs/{docs_id}",
+    )
 
 
 @app.delete("/delete_docs/{docs_id}")
 async def delete_docs(docs_id: str, request: Request):
-    return await proxy_json_or_form(request, DOCS_SERVICE_URL, f"/delete_docs/{docs_id}")
+    return await proxy_json_or_form(
+        request,
+        "docs-service",
+        DOCS_SERVICE_URL,
+        f"/delete_docs/{docs_id}",
+    )
 
 
 @app.post("/join_docs/{doc_id}")
 async def join_docs(doc_id: str, request: Request):
-    return await proxy_json_or_form(request, DOCS_SERVICE_URL, f"/join_docs/{doc_id}")
+    return await proxy_json_or_form(
+        request,
+        "docs-service",
+        DOCS_SERVICE_URL,
+        f"/join_docs/{doc_id}",
+    )
 
 
 @app.get("/predict")
 async def predict(request: Request):
-    return await proxy_json_or_form(request, PREDICTION_SERVICE_URL, "/predict")
+    return await proxy_json_or_form(
+        request,
+        "prediction-service",
+        PREDICTION_SERVICE_URL,
+        "/predict",
+    )
 
 
 @app.get("/predict/status")
 async def predict_status(request: Request):
-    return await proxy_json_or_form(request, PREDICTION_SERVICE_URL, "/predict/status")
+    return await proxy_json_or_form(
+        request,
+        "prediction-service",
+        PREDICTION_SERVICE_URL,
+        "/predict/status",
+    )
 
 
 @app.websocket("/ws/{doc_id}")
@@ -185,28 +238,37 @@ async def websocket_proxy(websocket: WebSocket, doc_id: str, token: str):
     await websocket.accept()
     downstream_url = f"{WS_SERVICE_URL}/ws/{doc_id}?token={token}"
 
-    async with websockets.connect(downstream_url) as downstream:
-        async def client_to_service():
-            while True:
-                message = await websocket.receive_text()
-                await downstream.send(message)
+    try:
+        async with websockets.connect(downstream_url) as downstream:
+            async def client_to_service():
+                while True:
+                    message = await websocket.receive_text()
+                    await downstream.send(message)
 
-        async def service_to_client():
-            async for message in downstream:
-                await websocket.send_text(message)
+            async def service_to_client():
+                async for message in downstream:
+                    await websocket.send_text(message)
 
-        tasks = [
-            asyncio.create_task(client_to_service()),
-            asyncio.create_task(service_to_client()),
-        ]
+            tasks = [
+                asyncio.create_task(client_to_service()),
+                asyncio.create_task(service_to_client()),
+            ]
 
-        try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-            for task in pending:
-                task.cancel()
-            for task in done:
-                exc = task.exception()
-                if exc:
-                    raise exc
-        except WebSocketDisconnect:
-            pass
+            try:
+                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+                for task in pending:
+                    task.cancel()
+                for task in done:
+                    exc = task.exception()
+                    if exc:
+                        raise exc
+            except WebSocketDisconnect:
+                pass
+    except Exception as exc:
+        await websocket.send_json({
+            "type": "ERROR",
+            "detail": "websocket-service is unavailable",
+            "target": downstream_url,
+            "error": str(exc),
+        })
+        await websocket.close(code=1011, reason="Gateway could not reach websocket service")
