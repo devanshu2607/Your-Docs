@@ -81,10 +81,13 @@ class PredictionService:
 
     def _load_assets(self):
         try:
+            tokenizer = self._load_tokenizer()
+            with self._lock:
+                self.tokenizer = tokenizer
+
             import tensorflow as tf
 
             model = self._load_model_file(tf)
-            tokenizer = self._load_tokenizer()
 
             with self._lock:
                 self.tf = tf
@@ -113,6 +116,7 @@ class PredictionService:
                 "status": status,
                 "model_path": str(self._model_path),
                 "tokenizer_path": str(self._tokenizer_path),
+                "tokenizer_ready": self.tokenizer is not None,
                 "available_assets": {key: str(path) for key, path in self._asset_paths.items()},
                 "error": str(self.load_error) if self.load_error else None,
             }
@@ -142,17 +146,18 @@ class PredictionService:
         return ""
 
     def predict_next_word(self, text: str):
-        if not self._loaded:
-            self.start_background_loading()
-            return {"status": self.status_payload()["status"], "word": ""}
-
         cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
         if not cleaned:
             return {"status": "ready", "word": ""}
 
+        if not self._loaded:
+            self.start_background_loading()
+            status = self.status_payload()["status"]
+            return {"status": status, "word": self._fallback_word(cleaned)}
+
         seq = self.tokenizer.texts_to_sequences([cleaned])[0]
         if not seq:
-            return {"status": "ready", "word": ""}
+            return {"status": "ready", "word": self._fallback_word(cleaned)}
 
         seq = self.tf.keras.preprocessing.sequence.pad_sequences(
             [seq],

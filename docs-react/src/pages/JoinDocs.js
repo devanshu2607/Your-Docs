@@ -6,6 +6,7 @@ import { getDocWsUrl } from '../config'
 import './User.css'
 
 export default function JoinDocs() {
+    const MAX_RECONNECT_ATTEMPTS = 6
     const { docId } = useParams()
     const navigate  = useNavigate()
 
@@ -16,10 +17,27 @@ export default function JoinDocs() {
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
     const blocksRef      = useRef([])
     const reconnectRef   = useRef(null)
+    const reconnectAttemptsRef = useRef(0)
     const manualCloseRef = useRef(false)
     const loadedRef      = useRef(false)    // ← in parent so survives re-renders
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
+
+    const closeSocket = useCallback(() => {
+        if (wsRef.current) {
+            wsRef.current.onopen = null
+            wsRef.current.onmessage = null
+            wsRef.current.onerror = null
+            wsRef.current.onclose = null
+            if (
+                wsRef.current.readyState === WebSocket.OPEN ||
+                wsRef.current.readyState === WebSocket.CONNECTING
+            ) {
+                wsRef.current.close()
+            }
+            wsRef.current = null
+        }
+    }, [])
 
     useEffect(() => {
         if (!docId) return
@@ -33,16 +51,31 @@ export default function JoinDocs() {
 
             manualCloseRef.current = false
             clearTimeout(reconnectRef.current)
+            closeSocket()
 
             const token   = localStorage.getItem("token")
+            if (!token) {
+                setJoined(false)
+                console.error("Missing auth token for websocket connection")
+                return
+            }
             const cleanId = docId.trim()
             const socket  = new WebSocket(getDocWsUrl(cleanId, token))
 
-            socket.onopen = () => setJoined(true)
+            socket.onopen = () => {
+                reconnectAttemptsRef.current = 0
+                setJoined(true)
+            }
 
             socket.onmessage = (event) => {
                 try {
                     const msg = JSON.parse(event.data)
+
+                    if (msg.type === 'ERROR') {
+                        manualCloseRef.current = true
+                        socket.close()
+                        return
+                    }
 
                     if (msg.type === 'INIT_BLOCKS') {
                         const nextBlocks = msg.blocks || []
@@ -80,9 +113,15 @@ export default function JoinDocs() {
                     return
                 }
                 if (!manualCloseRef.current) {
+                    reconnectAttemptsRef.current += 1
+                    if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
+                        alert("Live session disconnected. Please join again.")
+                        navigate("/dashboard")
+                        return
+                    }
                     reconnectRef.current = setTimeout(() => {
                         if (!manualCloseRef.current) loadAndConnect()
-                    }, 1500)
+                    }, Math.min(1500 * reconnectAttemptsRef.current, 6000))
                 }
             }
 
@@ -93,14 +132,14 @@ export default function JoinDocs() {
         return () => {
             manualCloseRef.current = true
             clearTimeout(reconnectRef.current)
-            wsRef.current?.close()
+            closeSocket()
         }
-    }, [docId, navigate])
+    }, [closeSocket, docId, navigate])
 
     const handleLeave = () => {
         manualCloseRef.current = true
         clearTimeout(reconnectRef.current)
-        wsRef.current?.close()
+        closeSocket()
         navigate("/dashboard")
     }
 

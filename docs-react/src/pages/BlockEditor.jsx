@@ -132,13 +132,53 @@ function LiveUpdatePlugin({ liveRef }) {
 // FIX 2: Stale-response guard via requestIdRef so a slow previous response
 //   doesn't overwrite the suggestion for the current text.
 function SuggestionPlugin() {
-    const [editor]     = useLexicalComposerContext()
+    const [editor] = useLexicalComposerContext()
     const [suggestion, setSuggestion] = useState('')
-    const debounceRef  = useRef(null)
+    const [predictionState, setPredictionState] = useState('idle')
+    const debounceRef = useRef(null)
+    const retryRef = useRef(null)
     const requestIdRef = useRef(0)
-    const suggRef      = useRef('')
+    const suggRef = useRef('')
+    const lastPhraseRef = useRef('')
 
     useEffect(() => { suggRef.current = suggestion }, [suggestion])
+
+    useEffect(() => {
+        return () => {
+            clearTimeout(debounceRef.current)
+            clearTimeout(retryRef.current)
+        }
+    }, [])
+
+    const fetchSuggestion = useCallback(async (phrase, requestId) => {
+        try {
+            const res = await api.get('/predict', { params: { text: phrase } })
+            if (requestId !== requestIdRef.current || phrase !== lastPhraseRef.current) return
+
+            const nextWord =
+                res.data?.word?.trim() ||
+                res.data?.prediction?.trim() ||
+                res.data?.next_word?.trim() ||
+                ''
+            const status = res.data?.status || 'ready'
+
+            setSuggestion(nextWord)
+            setPredictionState(status)
+
+            if (!nextWord && (status === 'loading' || status === 'idle')) {
+                retryRef.current = setTimeout(() => {
+                    if (requestId === requestIdRef.current && phrase === lastPhraseRef.current) {
+                        fetchSuggestion(phrase, requestId)
+                    }
+                }, 1200)
+            }
+        } catch {
+            if (requestId === requestIdRef.current) {
+                setSuggestion('')
+                setPredictionState('error')
+            }
+        }
+    }, [])
 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
@@ -150,27 +190,27 @@ function SuggestionPlugin() {
             })
             // read() is now done. Safe to be async below.
 
-            if (last3.length < 3) { setSuggestion(''); return }
+            if (last3.length < 3) {
+                lastPhraseRef.current = ''
+                requestIdRef.current += 1
+                clearTimeout(debounceRef.current)
+                clearTimeout(retryRef.current)
+                setSuggestion('')
+                setPredictionState('idle')
+                return
+            }
 
             clearTimeout(debounceRef.current)
+            clearTimeout(retryRef.current)
+            lastPhraseRef.current = last3
             const currentId = ++requestIdRef.current
 
-            debounceRef.current = setTimeout(async () => {
-                try {
-                    const res = await api.get('/predict', { params: { text: last3 } })
-                    if (currentId !== requestIdRef.current) return  // stale — discard
-                    const nextWord =
-                        res.data?.word?.trim() ||
-                        res.data?.prediction?.trim() ||
-                        res.data?.next_word?.trim() ||
-                        ''
-                    setSuggestion(nextWord)
-                } catch {
-                    if (currentId === requestIdRef.current) setSuggestion('')
-                }
-            }, 500)
+            setPredictionState('loading')
+            debounceRef.current = setTimeout(() => {
+                fetchSuggestion(last3, currentId)
+            }, 350)
         })
-    }, [editor])
+    }, [editor, fetchSuggestion])
 
     useEffect(() => {
         return editor.registerCommand(
@@ -190,7 +230,7 @@ function SuggestionPlugin() {
         )
     }, [editor])
 
-    if (!suggestion) return null
+    if (!suggestion && predictionState !== 'loading') return null
     return (
         <div className="suggestion-overlay" style={{
             position: 'absolute', top: '12px', right: '12px',
@@ -202,8 +242,14 @@ function SuggestionPlugin() {
             maxWidth: 'calc(100% - 24px)',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-            Prediction: <b style={{ color: 'var(--purple)' }}>{suggestion}</b>{' '}
-            <span style={{ color: 'var(--text-muted)' }}>Tab to insert</span>
+            {suggestion ? (
+                <>
+                    Prediction: <b style={{ color: 'var(--purple)' }}>{suggestion}</b>{' '}
+                    <span style={{ color: 'var(--text-muted)' }}>Tab to insert</span>
+                </>
+            ) : (
+                <span style={{ color: 'var(--text-muted)' }}>Prediction model is warming up…</span>
+            )}
         </div>
     )
 }

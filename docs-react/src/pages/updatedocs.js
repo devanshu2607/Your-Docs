@@ -6,6 +6,7 @@ import { getDocWsUrl } from '../config'
 import './User.css'
 
 export default function UpdateDocs() {
+    const MAX_RECONNECT_ATTEMPTS = 6
     const { id }   = useParams()
     const navigate = useNavigate()
 
@@ -22,6 +23,7 @@ export default function UpdateDocs() {
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
     const blocksRef      = useRef([])
     const reconnectRef   = useRef(null)
+    const reconnectAttemptsRef = useRef(0)
     const manualCloseRef = useRef(false)
     const loadedRef      = useRef(false)    // ← in parent so survives re-renders
 
@@ -44,18 +46,51 @@ export default function UpdateDocs() {
         wsRef.current?.close()
     }, [])
 
+    const closeSocket = useCallback(() => {
+        if (wsRef.current) {
+            wsRef.current.onopen = null
+            wsRef.current.onmessage = null
+            wsRef.current.onerror = null
+            wsRef.current.onclose = null
+            if (
+                wsRef.current.readyState === WebSocket.OPEN ||
+                wsRef.current.readyState === WebSocket.CONNECTING
+            ) {
+                wsRef.current.close()
+            }
+            wsRef.current = null
+        }
+    }, [])
+
     const handleStartSession = useCallback(() => {
         manualCloseRef.current = false
         clearTimeout(reconnectRef.current)
+        closeSocket()
         const token   = localStorage.getItem("token")
+        if (!token) {
+            setError("Please log in again before starting a live session.")
+            return
+        }
         const cleanId = id.trim()
         const socket  = new WebSocket(getDocWsUrl(cleanId, token))
 
-        socket.onopen = () => { setConnected(true); setShowCode(true) }
+        socket.onopen = () => {
+            reconnectAttemptsRef.current = 0
+            setError("")
+            setConnected(true)
+            setShowCode(true)
+        }
 
         socket.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data)
+
+                if (msg.type === 'ERROR') {
+                    setError(msg.detail || "Live session connection failed.")
+                    manualCloseRef.current = true
+                    socket.close()
+                    return
+                }
 
                 if (msg.type === 'INIT_BLOCKS') {
                     const nextBlocks = msg.blocks || []
@@ -88,14 +123,23 @@ export default function UpdateDocs() {
                 setError("WebSocket auth failed. Please log in again.")
                 return
             }
+            if (ev?.reason === "Session ended by host") {
+                setError("The live session ended.")
+                return
+            }
             console.warn("WS closed", ev?.code, ev?.reason)
+            reconnectAttemptsRef.current += 1
+            if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
+                setError("Live session disconnected. Please reconnect manually.")
+                return
+            }
             reconnectRef.current = setTimeout(() => {
                 if (!manualCloseRef.current) handleStartSession()
-            }, 1500)
+            }, Math.min(1500 * reconnectAttemptsRef.current, 6000))
         }
         wsRef.current = socket
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id])
+    }, [closeSocket, id])
 
     const handleEndSession = () => {
         manualCloseRef.current = true
@@ -104,6 +148,7 @@ export default function UpdateDocs() {
             wsRef.current.send(JSON.stringify({ type: "END_SESSION" }))
         setConnected(false)
         setShowCode(false)
+        closeSocket()
     }
 
     const handleUpdate = async () => {
