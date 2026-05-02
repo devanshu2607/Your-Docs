@@ -22,11 +22,10 @@ export default function Login(){
             formData.append("username" , data.username);
             formData.append("password" , data.password);
 
-            const res = await api.post('login_user' , formData)
+            const res = await api.post('/login_user' , formData)
             console.log(res.data)
             localStorage.setItem("token" , res.data.access_token)
             navigate('/dashboard');
-            alert ("login successful")
         }catch(err){
             console.log(err.response?.data)
 

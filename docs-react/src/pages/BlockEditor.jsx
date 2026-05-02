@@ -1,5 +1,5 @@
 // BlockEditor.jsx — All bugs fixed (v3)
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { LexicalComposer }           from '@lexical/react/LexicalComposer'
 import { RichTextPlugin }            from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable }           from '@lexical/react/LexicalContentEditable'
@@ -296,13 +296,13 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
-    const initialConfig = {
+    const initialConfig = useMemo(() => ({
         namespace: 'PikoDocs',
         theme,
         editable:  !readOnly,
         nodes:     [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode, AutoLinkNode],
         onError:   err => console.error('Lexical:', err),
-    }
+    }), [readOnly])
 
     // FIX: Old handleChange split plain text into groups of 5 lines and built
     // synthetic block objects. This broke sync because:

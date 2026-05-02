@@ -12,6 +12,7 @@ export default function JoinDocs() {
 
     const [joined, setJoined] = useState(false)
     const [blocks, setBlocks] = useState([])
+    const [error, setError]   = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -47,7 +48,10 @@ export default function JoinDocs() {
                 await api.post(`/join_docs/${docId}`)
                 const res = await api.post(`/get_doc/${docId}`)
                 setBlocks(res.data.blocks || [])
-            } catch (e) { console.error("Fetch failed", e) }
+            } catch (e) {
+                console.error("Fetch failed", e)
+                setError("Failed to load document. Please try again.")
+            }
 
             manualCloseRef.current = false
             clearTimeout(reconnectRef.current)
@@ -149,6 +153,8 @@ export default function JoinDocs() {
         <section>
             <div className="docs">
                 <h1>Live Doc</h1>
+
+                {error && <p style={{ color: "red" }}>{error}</p>}
 
                 {!joined ? (
                     <p style={{ color: "#1f2937" }}>Connecting…</p>

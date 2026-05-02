@@ -21,6 +21,7 @@ export default function CreateDocs() {
     const reconnectAttemptsRef = useRef(0)
     const manualCloseRef = useRef(false)
     const loadedRef      = useRef(false)    // ← in parent so survives re-renders
+    const connectingRef  = useRef(false)    // ← guard against double-click connect
     const navigate       = useNavigate()
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
@@ -60,6 +61,8 @@ export default function CreateDocs() {
 
     const handleConnect = useCallback(() => {
         if (!docId) return alert("Please create a doc first")
+        if (connectingRef.current) return
+        connectingRef.current = true
         manualCloseRef.current = false
         clearTimeout(reconnectRef.current)
         closeSocket()
@@ -74,6 +77,7 @@ export default function CreateDocs() {
 
         socket.onopen = () => {
             reconnectAttemptsRef.current = 0
+            connectingRef.current = false
             setError("")
             setConnected(true)
             setShowCode(true)
@@ -112,7 +116,10 @@ export default function CreateDocs() {
             } catch (_) {}
         }
 
-        socket.onerror = e => console.error("WS error", e)
+        socket.onerror = e => {
+            console.error("WS error", e)
+            connectingRef.current = false
+        }
         socket.onclose = (ev) => {
             setConnected(false)
             console.warn("WS closed", ev?.code, ev?.reason)

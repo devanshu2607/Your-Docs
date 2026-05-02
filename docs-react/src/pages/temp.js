@@ -18,11 +18,11 @@ export default function SignUp(){
         try{
             const res = await api.post('/create_user' , data);
             console.log(res.data)
-            alert("Signup successfull")
+            alert("Signup successful")
             navigate('/login')
         } catch(err){
             console.log(err)
-            alert("signup unsuccessfull")
+            alert(err.response?.data?.detail || "Signup failed")
         }
     };
     
@@ -69,32 +69,38 @@ export default function SignUp(){
                     <div className="form-grid">
                         <div className="inputBox">
                             <input type="text" className="text" placeholder="Name" 
+                                value={data.name}
                                 onChange={(e) => Setdata({...data , name : e.target.value})}
                             />
                         </div>
 
                         <div className="inputBox">
                              <input type="text" className="text" placeholder="Gender" 
+                                value={data.gender}
                                 onChange={(e) => Setdata({...data , gender : e.target.value})}
                             />
                         </div>
                         <div className="inputBox full">
                              <input type="email" className="email" placeholder="Email" 
+                                value={data.email}
                                 onChange={(e) => Setdata({...data , email : e.target.value})}
                             />
                         </div>
                         <div className="inputBox">
                              <input type="number" className="number" placeholder="Age" 
+                                value={data.age}
                                 onChange={(e) => Setdata({...data , age : e.target.value})}
                             />
                         </div>
                         <div className="inputBox">
                             <input type="text" className="text" placeholder="Address" 
+                                value={data.address}
                                 onChange={(e) => Setdata({...data , address : e.target.value})}
                             />
                         </div>
                         <div className="inputBox full">
                             <input type="password" className="password" placeholder="Password" 
+                                value={data.password}
                                 onChange={(e) => Setdata({...data , password : e.target.value})}
                             />
                         </div>

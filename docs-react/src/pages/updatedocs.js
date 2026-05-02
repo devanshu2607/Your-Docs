@@ -215,8 +215,12 @@ export default function UpdateDocs() {
                         style={{ background: "linear-gradient(135deg,#ff6b6b,#ee0979)", marginTop: "4px" }}
                         onClick={async () => {
                             if (!window.confirm("Delete this doc?")) return
-                            await api.delete(`/delete_docs/${id}`)
-                            navigate("/dashboard")
+                            try {
+                                await api.delete(`/delete_docs/${id}`)
+                                navigate("/dashboard")
+                            } catch (err) {
+                                setError(err.response?.data?.detail || "Delete failed")
+                            }
                         }}>
                         🗑 Delete Doc
                     </div>

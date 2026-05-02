@@ -11,8 +11,12 @@ export default function Dashboard() {
     useEffect(() => { fetchDocs() }, [])
 
     const fetchDocs = async () => {
-        const res = await api.post("/user_docs")
-        setDocs(Array.isArray(res.data) ? res.data : [])
+        try {
+            const res = await api.post("/user_docs")
+            setDocs(Array.isArray(res.data) ? res.data : [])
+        } catch (err) {
+            alert(err.response?.data?.detail || "Failed to load documents")
+        }
     }
 
     const handleDeleteDocs = async (id) => {
