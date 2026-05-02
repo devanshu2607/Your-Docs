@@ -182,15 +182,17 @@ function SuggestionPlugin() {
 
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
-            // Extract text SYNCHRONOUSLY inside read() — no async here
-            let last3 = ''
+            // Extract text SYNCHRONOUSLY inside read() — no async here.
+            // We only want actual words, not punctuation-heavy fragments or JSON-ish noise.
+            let lastPhrase = ''
             editorState.read(() => {
-                const words = $getRoot().getTextContent().trim().split(/\s+/).filter(Boolean)
-                last3 = words.slice(-3).join(' ')
+                const text = $getRoot().getTextContent().toLowerCase()
+                const words = text.match(/[a-z][a-z']*/g) || []
+                lastPhrase = words.slice(-3).join(' ')
             })
             // read() is now done. Safe to be async below.
 
-            if (last3.length < 3) {
+            if (lastPhrase.length < 3) {
                 lastPhraseRef.current = ''
                 requestIdRef.current += 1
                 clearTimeout(debounceRef.current)
@@ -202,12 +204,12 @@ function SuggestionPlugin() {
 
             clearTimeout(debounceRef.current)
             clearTimeout(retryRef.current)
-            lastPhraseRef.current = last3
+            lastPhraseRef.current = lastPhrase
             const currentId = ++requestIdRef.current
 
             setPredictionState('loading')
             debounceRef.current = setTimeout(() => {
-                fetchSuggestion(last3, currentId)
+                fetchSuggestion(lastPhrase, currentId)
             }, 350)
         })
     }, [editor, fetchSuggestion])

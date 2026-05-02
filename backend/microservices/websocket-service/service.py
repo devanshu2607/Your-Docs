@@ -3,7 +3,9 @@ from datetime import datetime
 
 from Models.Block_Model import DocBlock
 from Models.Collabration_Model import CollaborationSession
+from Models.Docs_Model import Document  # Ensures Docs_table is registered in metadata.
 from Models.Participating_Model import SessionParticipant
+from Models.User_Model import User  # Ensures User_Table is registered in metadata.
 from Models.User_Document import UserDocument
 
 
