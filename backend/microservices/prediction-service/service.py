@@ -13,7 +13,10 @@ class PredictionService:
             or os.getenv("OPENROUTER_API_KEY", "").strip()
             or os.getenv("OPENAI_API_KEY", "").strip()
         )
-        self.model = os.getenv("PREDICTION_MODEL", "openrouter/free").strip() or "openrouter/free"
+        self.model = (
+            os.getenv("PREDICTION_MODEL", "qwen/qwen3-next-80b-a3b-instruct:free").strip()
+            or "qwen/qwen3-next-80b-a3b-instruct:free"
+        )
         self.base_url = (
             os.getenv("PREDICTION_BASE_URL", "https://openrouter.ai/api/v1").strip().rstrip("/")
         )

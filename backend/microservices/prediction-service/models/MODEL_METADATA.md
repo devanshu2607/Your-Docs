@@ -6,7 +6,7 @@ They are **not** used by the deployed prediction service anymore.
 ## Deployment behavior
 
 - runtime prediction path: external API
-- deployed service loads: `openrouter/free` by default
+- deployed service loads: `qwen/qwen3-next-80b-a3b-instruct:free` by default
 - Docker deployment includes: no files from this `models/` directory
 
 ## Stored assets

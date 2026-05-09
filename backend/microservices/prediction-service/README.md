@@ -17,5 +17,5 @@ Connection idea:
 
 Provider mode:
 - default provider: `openrouter`
-- default model: `openrouter/free`
+- default model: `qwen/qwen3-next-80b-a3b-instruct:free`
 - env vars: `PREDICTION_PROVIDER`, `PREDICTION_API_KEY`, `PREDICTION_MODEL`, `PREDICTION_BASE_URL`

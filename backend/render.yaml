@@ -73,7 +73,7 @@ services:
       - key: PREDICTION_API_KEY
         sync: false
       - key: PREDICTION_MODEL
-        value: openrouter/free
+        value: qwen/qwen3-next-80b-a3b-instruct:free
       - key: PREDICTION_BASE_URL
         value: https://openrouter.ai/api/v1
 
