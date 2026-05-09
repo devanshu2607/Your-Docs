@@ -65,11 +65,31 @@ EOF
             }
         }
 
+        stage('Prepare Render Env') {
+            when {
+                expression { return !params.DEPLOY_TARGET || params.DEPLOY_TARGET == 'render' }
+            }
+            steps {
+                sh '''
+                    cat > "$BACKEND_DIR/.env" <<EOF
+SQL_DATABASE_URL=$SQL_DATABASE_URL
+SECRET_KEY=$SECRET_KEY
+PREDICTION_PROVIDER=openrouter
+PREDICTION_API_KEY=$PREDICTION_API_KEY
+PREDICTION_MODEL=openrouter/free
+PREDICTION_BASE_URL=https://openrouter.ai/api/v1
+FRONTEND_URL=${FRONTEND_URL}
+CORS_ORIGINS=${FRONTEND_URL}
+EOF
+                '''
+            }
+        }
+
         stage('Validate Compose') {
             steps {
                 sh '''
                     cd "$BACKEND_DIR"
-                    if [ "${DEPLOY_TARGET}" = "aws" ]; then
+                    if [ "${DEPLOY_TARGET:-render}" = "aws" ]; then
                         docker compose -f docker-compose.aws.yml --env-file .env.aws config >/dev/null
                     else
                         docker compose -f docker-compose.yml config >/dev/null
@@ -82,7 +102,7 @@ EOF
             steps {
                 sh '''
                     cd "$BACKEND_DIR"
-                    if [ "${DEPLOY_TARGET}" = "aws" ]; then
+                    if [ "${DEPLOY_TARGET:-render}" = "aws" ]; then
                         docker compose -f docker-compose.aws.yml --env-file .env.aws build
                     else
                         docker compose -f docker-compose.yml build
@@ -164,6 +184,7 @@ EOF
         always {
             sh '''
                 rm -f "$BACKEND_DIR/.env.aws"
+                rm -f "$BACKEND_DIR/.env"
             '''
         }
     }
