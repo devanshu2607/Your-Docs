@@ -1,183 +1,135 @@
-import pickle
+import os
 import re
-import threading
-from pathlib import Path
+from typing import Optional
 
-import numpy as np
+import httpx
 
 
 class PredictionService:
     def __init__(self):
-        self.max_len = 20
-        self.tf = None
-        self.model = None
-        self.tokenizer = None
-        self.load_error = None
-        self._lock = threading.Lock()
-        self._loading = False
-        self._loaded = False
-        self._backend_dir = Path(__file__).resolve().parents[2]
-        self._service_dir = Path(__file__).resolve().parent
-        self._asset_paths = {
-            "keras_model": self._resolve_asset_path("lstm_model.keras"),
-            "h5_model": self._resolve_asset_path("lstm_model.h5"),
-            "tokens_tokenizer": self._resolve_asset_path("tokens.pkl"),
-            "lstm_tokenizer": self._resolve_asset_path("lstm_tokenizer.pkl"),
-        }
-        self._model_path = self._asset_paths["keras_model"]
-        self._tokenizer_path = self._asset_paths["tokens_tokenizer"]
-
-    def _resolve_asset_path(self, *filenames: str) -> Path:
-        candidates = []
-        for filename in filenames:
-            candidates.extend([
-                self._service_dir / "models" / filename,
-                self._backend_dir / filename,
-                self._backend_dir / "Services" / filename,
-                self._backend_dir / "next_word_prediction" / filename,
-            ])
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-        return candidates[0]
-
-    def _load_tokenizer(self):
-        tokenizer_candidates = [
-            self._asset_paths["tokens_tokenizer"],
-            self._asset_paths["lstm_tokenizer"],
-        ]
-        last_error = None
-        for tokenizer_path in tokenizer_candidates:
-            try:
-                with open(tokenizer_path, "rb") as file_obj:
-                    tokenizer = pickle.load(file_obj)
-                self._tokenizer_path = tokenizer_path
-                return tokenizer
-            except Exception as exc:
-                last_error = exc
-        raise last_error
-
-    def _load_model_file(self, tf):
-        model_candidates = [
-            self._asset_paths["keras_model"],
-            self._asset_paths["h5_model"],
-        ]
-        last_error = None
-        for model_path in model_candidates:
-            try:
-                model = tf.keras.models.load_model(model_path)
-                self._model_path = model_path
-                return model
-            except Exception as exc:
-                last_error = exc
-        raise last_error
+        self.provider = os.getenv("PREDICTION_PROVIDER", "openrouter").strip().lower() or "openrouter"
+        self.api_key = (
+            os.getenv("PREDICTION_API_KEY", "").strip()
+            or os.getenv("OPENROUTER_API_KEY", "").strip()
+            or os.getenv("OPENAI_API_KEY", "").strip()
+        )
+        self.model = os.getenv("PREDICTION_MODEL", "openrouter/free").strip() or "openrouter/free"
+        self.base_url = (
+            os.getenv("PREDICTION_BASE_URL", "https://openrouter.ai/api/v1").strip().rstrip("/")
+        )
+        self._last_error: Optional[str] = None
 
     def start_background_loading(self):
-        with self._lock:
-            if self._loaded or self._loading:
-                return
-            self._loading = True
-            threading.Thread(target=self._load_assets, daemon=True).start()
-
-    def _load_assets(self):
-        try:
-            tokenizer = self._load_tokenizer()
-            with self._lock:
-                self.tokenizer = tokenizer
-
-            import tensorflow as tf
-
-            model = self._load_model_file(tf)
-
-            with self._lock:
-                self.tf = tf
-                self.model = model
-                self.tokenizer = tokenizer
-                self.load_error = None
-                self._loaded = True
-        except Exception as exc:
-            with self._lock:
-                self.load_error = exc
-        finally:
-            with self._lock:
-                self._loading = False
+        # External API mode does not need model warm-up.
+        return
 
     def status_payload(self):
-        with self._lock:
-            if self._loaded:
-                status = "ready"
-            elif self._loading:
-                status = "loading"
-            elif self.load_error is not None:
-                status = "error"
-            else:
-                status = "idle"
-            return {
-                "status": status,
-                "model_path": str(self._model_path),
-                "tokenizer_path": str(self._tokenizer_path),
-                "tokenizer_ready": self.tokenizer is not None,
-                "available_assets": {key: str(path) for key, path in self._asset_paths.items()},
-                "error": str(self.load_error) if self.load_error else None,
-            }
+        status = "ready"
+        if not self.api_key:
+            status = "degraded"
+
+        return {
+            "status": status,
+            "provider": self.provider,
+            "model": self.model,
+            "configured": bool(self.api_key),
+            "error": self._last_error,
+        }
+
+    def _clean_text(self, text: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
 
     def _fallback_word(self, text: str) -> str:
-        if not self.tokenizer:
-            return ""
-        counts = getattr(self.tokenizer, "word_counts", {}) or {}
-        if not counts:
+        cleaned = self._clean_text(text)
+        if not cleaned:
             return ""
 
-        last_word = ""
-        cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
-        if cleaned:
-            last_word = cleaned.split()[-1]
+        words = cleaned.split()
+        if not words:
+            return ""
 
-        candidates = sorted(
-            counts.items(),
-            key=lambda item: (-int(item[1]), item[0]),
-        )
-        for word, _count in candidates:
-            if len(word) < 2:
-                continue
-            if word == last_word:
-                continue
-            return word
+        common_suffix_map = {
+            "how": "to",
+            "what": "is",
+            "where": "is",
+            "when": "you",
+            "thank": "you",
+            "nice": "work",
+            "let": "me",
+            "i": "am",
+            "we": "can",
+            "you": "can",
+            "can": "you",
+        }
+        return common_suffix_map.get(words[-1], "")
+
+    def _normalize_word(self, raw_text: str) -> str:
+        for word in self._clean_text(raw_text).split():
+            if word:
+                return word
         return ""
 
+    def _predict_with_openrouter(self, text: str):
+        if not self.api_key:
+            self._last_error = "PREDICTION_API_KEY is not set"
+            return {"status": "degraded", "word": self._fallback_word(text)}
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You predict the next word for a collaborative text editor. "
+                        "Reply with exactly one likely next word in lowercase ASCII letters only. "
+                        "No punctuation. No explanation. No multiple words."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Context: {text}\nNext word:",
+                },
+            ],
+            "max_tokens": 5,
+            "temperature": 0.2,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            with httpx.Client(timeout=12.0) as client:
+                response = client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+        except Exception as exc:
+            self._last_error = str(exc)
+            return {"status": "error", "word": self._fallback_word(text)}
+
+        choices = data.get("choices") or []
+        content = ""
+        if choices:
+            content = (((choices[0] or {}).get("message") or {}).get("content") or "").strip()
+
+        word = self._normalize_word(content)
+        if not word:
+            self._last_error = "Model returned no usable word"
+            return {"status": "error", "word": self._fallback_word(text)}
+
+        self._last_error = None
+        return {"status": "ready", "word": word}
+
     def predict_next_word(self, text: str):
-        cleaned = re.sub(r"[^a-zA-Z0-9']+", " ", (text or "").lower()).strip()
+        cleaned = self._clean_text(text)
         if not cleaned:
             return {"status": "ready", "word": ""}
 
-        if not self._loaded:
-            self.start_background_loading()
-            status = self.status_payload()["status"]
-            return {"status": status, "word": self._fallback_word(cleaned)}
+        if self.provider == "openrouter":
+            return self._predict_with_openrouter(cleaned)
 
-        seq = self.tokenizer.texts_to_sequences([cleaned])[0]
-        if not seq:
-            return {"status": "ready", "word": self._fallback_word(cleaned)}
-
-        seq = self.tf.keras.preprocessing.sequence.pad_sequences(
-            [seq],
-            maxlen=self.max_len - 1,
-            padding="pre",
-        )
-        pred = self.model.predict(seq, verbose=0)
-        index = int(np.argmax(pred))
-        word = self.tokenizer.index_word.get(index) or self.tokenizer.index_word.get(index + 1, "")
-        if word:
-            return {"status": "ready", "word": word}
-
-        for candidate in np.argsort(pred[0])[::-1]:
-            candidate = int(candidate)
-            word = self.tokenizer.index_word.get(candidate) or self.tokenizer.index_word.get(candidate + 1, "")
-            if word:
-                return {"status": "ready", "word": word}
-
-        fallback = self._fallback_word(cleaned)
-        return {"status": "ready", "word": fallback}
+        self._last_error = f"Unsupported prediction provider: {self.provider}"
+        return {"status": "error", "word": self._fallback_word(cleaned)}
 
 
 prediction_service = PredictionService()

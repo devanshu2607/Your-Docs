@@ -3,24 +3,34 @@ pipeline {
 
     options {
         skipDefaultCheckout()
+        timestamps()
+    }
+
+    parameters {
+        choice(name: 'DEPLOY_TARGET', choices: ['render', 'aws'], description: 'Choose where Jenkins should deploy the backend.')
+        booleanParam(name: 'DEPLOY_AFTER_BUILD', defaultValue: true, description: 'Deploy to the AWS EC2 backend server after the pipeline passes.')
+        string(name: 'FRONTEND_URL', defaultValue: 'https://your-vercel-app.vercel.app', description: 'Public Vercel frontend URL allowed by backend CORS.')
+        string(name: 'AWS_EC2_HOST', defaultValue: 'api.example.com', description: 'EC2 host or DNS name that receives the backend deployment.')
+        string(name: 'AWS_EC2_USER', defaultValue: 'ubuntu', description: 'SSH user for the EC2 instance.')
+        string(name: 'AWS_APP_DIR', defaultValue: '/opt/your-docs/backend', description: 'Remote directory where the backend stack lives on EC2.')
+        string(name: 'BACKEND_HEALTHCHECK_URL', defaultValue: 'https://api.example.com/health', description: 'Public health endpoint checked after deployment.')
+        string(name: 'RENDER_BACKEND_URL', defaultValue: 'https://your-docs.onrender.com', description: 'Public Render backend URL used for post-deploy health checks.')
     }
 
     environment {
         BACKEND_DIR = 'backend'
-        RENDER_BACKEND_URL = 'https://your-docs.onrender.com'
+        AUTH_SERVICE_HOSTPORT = 'auth-service:8000'
+        DOCS_SERVICE_HOSTPORT = 'docs-service:8000'
+        WS_SERVICE_HOSTPORT = 'websocket-service:8000'
+        PREDICTION_SERVICE_HOSTPORT = 'prediction-service:8000'
+        SQL_DATABASE_URL = credentials('docs-sql-database-url')
+        SECRET_KEY = credentials('docs-secret-key')
+        PREDICTION_API_KEY = credentials('prediction-api-key')
         RENDER_AUTH_SERVICE_DEPLOY_HOOK = credentials('render-auth-service-deploy-hook')
         RENDER_DOCS_SERVICE_DEPLOY_HOOK = credentials('render-docs-service-deploy-hook')
         RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK = credentials('render-websocket-service-deploy-hook')
         RENDER_PREDICTION_SERVICE_DEPLOY_HOOK = credentials('render-prediction-service-deploy-hook')
         RENDER_GATEWAY_SERVICE_DEPLOY_HOOK = credentials('render-docs-backend-deploy-hook')
-        AUTH_SERVICE_URL = 'http://auth-service:8000'
-        DOCS_SERVICE_URL = 'http://docs-service:8000'
-        WS_SERVICE_URL = 'ws://websocket-service:8000'
-        PREDICTION_SERVICE_URL = 'http://prediction-service:8000'
-        FRONTEND_URL = 'http://localhost:3000'
-        CORS_ORIGINS = 'http://localhost:3000'
-        SQL_DATABASE_URL = credentials('docs-sql-database-url')
-        SECRET_KEY = credentials('docs-secret-key')
     }
 
     stages {
@@ -31,18 +41,25 @@ pipeline {
             }
         }
 
-        stage('Prepare Env') {
+        stage('Prepare AWS Env') {
+            when {
+                expression { return params.DEPLOY_TARGET == 'aws' }
+            }
             steps {
                 sh '''
-                    cat > "$BACKEND_DIR/.env" <<EOF
+                    cat > "$BACKEND_DIR/.env.aws" <<EOF
 SQL_DATABASE_URL=$SQL_DATABASE_URL
 SECRET_KEY=$SECRET_KEY
-AUTH_SERVICE_URL=$AUTH_SERVICE_URL
-DOCS_SERVICE_URL=$DOCS_SERVICE_URL
-WS_SERVICE_URL=$WS_SERVICE_URL
-PREDICTION_SERVICE_URL=$PREDICTION_SERVICE_URL
-FRONTEND_URL=$FRONTEND_URL
-CORS_ORIGINS=$CORS_ORIGINS
+AUTH_SERVICE_HOSTPORT=$AUTH_SERVICE_HOSTPORT
+DOCS_SERVICE_HOSTPORT=$DOCS_SERVICE_HOSTPORT
+WS_SERVICE_HOSTPORT=$WS_SERVICE_HOSTPORT
+PREDICTION_SERVICE_HOSTPORT=$PREDICTION_SERVICE_HOSTPORT
+FRONTEND_URL=${FRONTEND_URL}
+CORS_ORIGINS=${FRONTEND_URL}
+PREDICTION_PROVIDER=openrouter
+PREDICTION_API_KEY=$PREDICTION_API_KEY
+PREDICTION_MODEL=openrouter/free
+PREDICTION_BASE_URL=https://openrouter.ai/api/v1
 EOF
                 '''
             }
@@ -52,12 +69,32 @@ EOF
             steps {
                 sh '''
                     cd "$BACKEND_DIR"
-                    docker-compose config
+                    if [ "${DEPLOY_TARGET}" = "aws" ]; then
+                        docker compose -f docker-compose.aws.yml --env-file .env.aws config >/dev/null
+                    else
+                        docker compose -f docker-compose.yml config >/dev/null
+                    fi
                 '''
             }
         }
 
-        stage('Trigger Render Deploy') {
+        stage('Build Backend Images') {
+            steps {
+                sh '''
+                    cd "$BACKEND_DIR"
+                    if [ "${DEPLOY_TARGET}" = "aws" ]; then
+                        docker compose -f docker-compose.aws.yml --env-file .env.aws build
+                    else
+                        docker compose -f docker-compose.yml build
+                    fi
+                '''
+            }
+        }
+
+        stage('Deploy To Render') {
+            when {
+                expression { return params.DEPLOY_AFTER_BUILD && params.DEPLOY_TARGET == 'render' }
+            }
             steps {
                 sh '''
                     for hook in \
@@ -72,20 +109,62 @@ EOF
             }
         }
 
+        stage('Deploy To AWS EC2') {
+            when {
+                expression { return params.DEPLOY_AFTER_BUILD && params.DEPLOY_TARGET == 'aws' }
+            }
+            steps {
+                sshagent(credentials: ['aws-ec2-ssh-key']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "mkdir -p '${AWS_APP_DIR}'"
+
+                        rsync -az --delete \
+                            --exclude '.env.aws' \
+                            --exclude '.env' \
+                            "$BACKEND_DIR/" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/"
+
+                        scp -o StrictHostKeyChecking=no "$BACKEND_DIR/.env.aws" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/.env.aws"
+
+                        ssh -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
+                            cd '${AWS_APP_DIR}' && \
+                            docker compose -f docker-compose.aws.yml --env-file .env.aws up -d --build --remove-orphans
+                        "
+                    '''
+                }
+            }
+        }
+
         stage('Health Check') {
+            when {
+                expression { return params.DEPLOY_AFTER_BUILD }
+            }
             steps {
                 sh '''
+                    if [ "${DEPLOY_TARGET}" = "render" ]; then
+                        TARGET_URL="${RENDER_BACKEND_URL}/health"
+                        FAILURE_MSG="Render backend health check failed"
+                    else
+                        TARGET_URL="${BACKEND_HEALTHCHECK_URL}"
+                        FAILURE_MSG="AWS backend health check failed"
+                    fi
                     for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-                        if curl -fsS "$RENDER_BACKEND_URL/health"; then
+                        if curl -fsS "$TARGET_URL"; then
                             exit 0
                         fi
                         sleep 20
                     done
-                    echo "Render backend health check failed"
+                    echo "$FAILURE_MSG"
                     exit 1
                 '''
             }
         }
     }
 
+    post {
+        always {
+            sh '''
+                rm -f "$BACKEND_DIR/.env.aws"
+            '''
+        }
+    }
 }

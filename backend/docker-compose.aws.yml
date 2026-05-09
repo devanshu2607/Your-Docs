@@ -1,0 +1,68 @@
+services:
+  gateway-service:
+    build:
+      context: .
+      dockerfile: ./microservices/gateway-service/Dockerfile
+    container_name: gateway_service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env.aws
+    environment:
+      AUTH_SERVICE_HOSTPORT: ${AUTH_SERVICE_HOSTPORT:-auth-service:8000}
+      DOCS_SERVICE_HOSTPORT: ${DOCS_SERVICE_HOSTPORT:-docs-service:8000}
+      WS_SERVICE_HOSTPORT: ${WS_SERVICE_HOSTPORT:-websocket-service:8000}
+      PREDICTION_SERVICE_HOSTPORT: ${PREDICTION_SERVICE_HOSTPORT:-prediction-service:8000}
+      FRONTEND_URL: ${FRONTEND_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    depends_on:
+      - auth-service
+      - docs-service
+      - websocket-service
+      - prediction-service
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./microservices/auth-service/Dockerfile
+    container_name: auth_service
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - ./.env.aws
+
+  docs-service:
+    build:
+      context: .
+      dockerfile: ./microservices/docs-service/Dockerfile
+    container_name: docs_service
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - ./.env.aws
+
+  websocket-service:
+    build:
+      context: .
+      dockerfile: ./microservices/websocket-service/Dockerfile
+    container_name: websocket_service
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - ./.env.aws
+
+  prediction-service:
+    build:
+      context: .
+      dockerfile: ./microservices/prediction-service/Dockerfile
+    container_name: prediction_service
+    restart: unless-stopped
+    expose:
+      - "8000"
+    env_file:
+      - ./.env.aws
+

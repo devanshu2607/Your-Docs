@@ -1,3 +1,15 @@
+## Deployment Notes
+
+This repo still contains the existing Render deployment notes below.
+
+If you want to keep the frontend on Vercel and move only the backend to AWS, use:
+
+- [backend/DEPLOY_AWS.md](/C:/Your%20Docs/backend/DEPLOY_AWS.md:1)
+- [backend/docker-compose.aws.yml](/C:/Your%20Docs/backend/docker-compose.aws.yml:1)
+- [backend/.env.aws.example](/C:/Your%20Docs/backend/.env.aws.example:1)
+
+The biggest packaging fix for AWS is the new root-level [backend/.dockerignore](/C:/Your%20Docs/backend/.dockerignore:1), which prevents local virtualenv and notebook files from bloating Docker builds.
+
 ## Render Deployment
 
 This repo is prepared for a full Render Blueprint deployment:
@@ -29,21 +41,21 @@ The gateway is the public backend entrypoint. The other backend services stay on
 
 ### Jenkins-driven deploys
 
-If you want Jenkins to control deployment, keep Render `autoDeployTrigger: off` and let Jenkins call each service's deploy hook after tests pass.
+If you want Jenkins to control backend deployment to AWS while the frontend stays on Vercel, use the AWS pipeline in [backend/Jenkinsfile](/C:/Your%20Docs/backend/Jenkinsfile:1).
 
 Recommended Jenkins flow:
 
 1. Poll SCM or use a webhook to start the pipeline.
-2. Create `backend/.env` from Jenkins credentials.
-3. Run compose validation and syntax checks.
-4. Build the backend images locally if you want that extra safety check.
-5. Call the Render deploy hooks for the backend services.
-6. Poll the public gateway health endpoint until Render finishes rolling out.
+2. Create `backend/.env.aws` from Jenkins credentials.
+3. Validate [backend/docker-compose.aws.yml](/C:/Your%20Docs/backend/docker-compose.aws.yml:1).
+4. Build the backend images locally in Jenkins.
+5. SSH into EC2 and sync the backend deployment bundle.
+6. Run `docker compose -f docker-compose.aws.yml up -d --build` on EC2.
+7. Poll the public gateway health endpoint until AWS finishes rolling out.
 
-Jenkins needs secret text credentials for the Render deploy hooks for:
+Jenkins needs these credentials for the AWS flow:
 
-- `auth-service`
-- `docs-service`
-- `websocket-service`
-- `prediction-service`
-- `docs-backend`
+- `docs-sql-database-url`
+- `docs-secret-key`
+- `prediction-api-key`
+- `aws-ec2-ssh-key`

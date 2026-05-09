@@ -1,0 +1,19 @@
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+.gitignore
+.env
+.env.*
+.logs/
+venv/
+.venv/
+
+# Local notebooks and experiments do not belong in service images.
+next_word_prediction/
+*.ipynb
+
+# Keep legacy TensorFlow model assets in git for portfolio/reference only.
+# They must not be copied into deployment images.
+microservices/prediction-service/models/
