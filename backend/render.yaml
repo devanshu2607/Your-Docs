@@ -67,6 +67,15 @@ services:
     dockerContext: backend
     dockerfilePath: backend/microservices/prediction-service/Dockerfile
     healthCheckPath: /health
+    envVars:
+      - key: PREDICTION_PROVIDER
+        value: openrouter
+      - key: PREDICTION_API_KEY
+        sync: false
+      - key: PREDICTION_MODEL
+        value: openrouter/free
+      - key: PREDICTION_BASE_URL
+        value: https://openrouter.ai/api/v1
 
   - type: web
     name: docs-backend
