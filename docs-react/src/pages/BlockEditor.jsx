@@ -188,11 +188,11 @@ function SuggestionPlugin() {
             editorState.read(() => {
                 const text = $getRoot().getTextContent().toLowerCase()
                 const words = text.match(/[a-z][a-z']*/g) || []
-                lastPhrase = words.slice(-3).join(' ')
+                lastPhrase = words.slice(-12).join(' ')
             })
             // read() is now done. Safe to be async below.
 
-            if (lastPhrase.length < 3) {
+            if (lastPhrase.length < 6) {
                 lastPhraseRef.current = ''
                 requestIdRef.current += 1
                 clearTimeout(debounceRef.current)
@@ -210,7 +210,7 @@ function SuggestionPlugin() {
             setPredictionState('loading')
             debounceRef.current = setTimeout(() => {
                 fetchSuggestion(lastPhrase, currentId)
-            }, 350)
+            }, 180)
         })
     }, [editor, fetchSuggestion])
 
@@ -250,7 +250,7 @@ function SuggestionPlugin() {
                     <span style={{ color: 'var(--text-muted)' }}>Tab to insert</span>
                 </>
             ) : (
-                <span style={{ color: 'var(--text-muted)' }}>Prediction model is warming up…</span>
+                <span style={{ color: 'var(--text-muted)' }}>Fetching prediction…</span>
             )}
         </div>
     )

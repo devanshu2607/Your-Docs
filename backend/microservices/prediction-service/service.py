@@ -83,18 +83,28 @@ class PredictionService:
                 {
                     "role": "system",
                     "content": (
-                        "You predict the next word for a collaborative text editor. "
-                        "Reply with exactly one likely next word in lowercase ASCII letters only. "
-                        "No punctuation. No explanation. No multiple words."
+                        "You are a next-word prediction engine for a document editor. "
+                        "Your task is to predict the single most likely next word that would continue the user's text naturally. "
+                        "Reply with exactly one lowercase word using ASCII letters only. "
+                        "Do not explain. Do not add punctuation. Do not return multiple words. "
+                        "Prefer context-specific continuations over generic assistant words like 'you' or 'can' unless the text strongly suggests them."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": f"Context: {text}\nNext word:",
+                    "content": (
+                        "Predict the most likely next word.\n\n"
+                        "Examples:\n"
+                        "Context: i am going to the\nNext word: market\n"
+                        "Context: this project is very\nNext word: good\n"
+                        "Context: thank you for your\nNext word: help\n\n"
+                        f"Context: {text}\nNext word:"
+                    ),
                 },
             ],
             "max_tokens": 5,
-            "temperature": 0.2,
+            "temperature": 0.1,
+            "top_p": 0.9,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",
