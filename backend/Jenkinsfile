@@ -26,11 +26,6 @@ pipeline {
         SQL_DATABASE_URL = credentials('docs-sql-database-url')
         SECRET_KEY = credentials('docs-secret-key')
         PREDICTION_API_KEY = credentials('prediction-api-key')
-        RENDER_AUTH_SERVICE_DEPLOY_HOOK = credentials('render-auth-service-deploy-hook')
-        RENDER_DOCS_SERVICE_DEPLOY_HOOK = credentials('render-docs-service-deploy-hook')
-        RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK = credentials('render-websocket-service-deploy-hook')
-        RENDER_PREDICTION_SERVICE_DEPLOY_HOOK = credentials('render-prediction-service-deploy-hook')
-        RENDER_GATEWAY_SERVICE_DEPLOY_HOOK = credentials('render-docs-backend-deploy-hook')
     }
 
     stages {
@@ -116,16 +111,24 @@ EOF
                 expression { return params.DEPLOY_AFTER_BUILD && params.DEPLOY_TARGET == 'render' }
             }
             steps {
-                sh '''
-                    for hook in \
-                        "$RENDER_AUTH_SERVICE_DEPLOY_HOOK" \
-                        "$RENDER_DOCS_SERVICE_DEPLOY_HOOK" \
-                        "$RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK" \
-                        "$RENDER_PREDICTION_SERVICE_DEPLOY_HOOK" \
-                        "$RENDER_GATEWAY_SERVICE_DEPLOY_HOOK"; do
-                        curl -fsS -X POST "$hook"
-                    done
-                '''
+                withCredentials([
+                    string(credentialsId: 'render-auth-service-deploy-hook', variable: 'RENDER_AUTH_SERVICE_DEPLOY_HOOK'),
+                    string(credentialsId: 'render-docs-service-deploy-hook', variable: 'RENDER_DOCS_SERVICE_DEPLOY_HOOK'),
+                    string(credentialsId: 'render-websocket-service-deploy-hook', variable: 'RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK'),
+                    string(credentialsId: 'render-prediction-service-deploy-hook', variable: 'RENDER_PREDICTION_SERVICE_DEPLOY_HOOK'),
+                    string(credentialsId: 'render-docs-backend-deploy-hook', variable: 'RENDER_GATEWAY_SERVICE_DEPLOY_HOOK'),
+                ]) {
+                    sh '''
+                        for hook in \
+                            "$RENDER_AUTH_SERVICE_DEPLOY_HOOK" \
+                            "$RENDER_DOCS_SERVICE_DEPLOY_HOOK" \
+                            "$RENDER_WEBSOCKET_SERVICE_DEPLOY_HOOK" \
+                            "$RENDER_PREDICTION_SERVICE_DEPLOY_HOOK" \
+                            "$RENDER_GATEWAY_SERVICE_DEPLOY_HOOK"; do
+                            curl -fsS -X POST "$hook"
+                        done
+                    '''
+                }
             }
         }
 
@@ -182,10 +185,14 @@ EOF
 
     post {
         always {
-            sh '''
-                rm -f "$BACKEND_DIR/.env.aws"
-                rm -f "$BACKEND_DIR/.env"
-            '''
+            script {
+                if (env.WORKSPACE?.trim()) {
+                    sh '''
+                        rm -f "$BACKEND_DIR/.env.aws"
+                        rm -f "$BACKEND_DIR/.env"
+                    '''
+                }
+            }
         }
     }
 }
