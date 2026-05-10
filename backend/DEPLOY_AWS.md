@@ -41,18 +41,70 @@ Using plain `http://EC2-IP:8000` from a Vercel-hosted site is not a good product
    - `SQL_DATABASE_URL`
    - `PREDICTION_API_KEY`
 
+## EC2 one-time setup
+
+Use Ubuntu on the EC2 free tier, then run:
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg git
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+Open these EC2 security group ports:
+
+- `22` for SSH
+- `80` for HTTP
+- `443` for HTTPS
+- `8000` only if you want to test the gateway directly before Nginx
+
 ## Run on EC2
 
 ```bash
+git clone <your-repo-url>
 cd backend
 cp .env.aws.example .env.aws
+nano .env.aws
 docker compose -f docker-compose.aws.yml up -d --build
+```
+
+Check that everything is healthy:
+
+```bash
+docker compose -f docker-compose.aws.yml ps
+docker compose -f docker-compose.aws.yml logs -f gateway-service
+curl http://localhost:8000/health
+```
+
+If you want the stack to come back after a reboot:
+
+```bash
+sudo systemctl enable docker
 ```
 
 ## What is public vs internal
 
 - `gateway-service` is the only public-facing service
 - `auth-service`, `docs-service`, `websocket-service`, and `prediction-service` stay private inside Docker networking
+
+## Next step after containers work
+
+Once `curl http://localhost:8000/health` works on EC2, put Nginx in front and attach a domain plus SSL. Then point Vercel to:
+
+```env
+REACT_APP_API_URL=https://api.example.com
+REACT_APP_WS_URL=wss://api.example.com
+```
 
 ## Prediction service note
 

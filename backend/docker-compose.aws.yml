@@ -17,10 +17,20 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       CORS_ORIGINS: ${CORS_ORIGINS}
     depends_on:
-      - auth-service
-      - docs-service
-      - websocket-service
-      - prediction-service
+      auth-service:
+        condition: service_healthy
+      docs-service:
+        condition: service_healthy
+      websocket-service:
+        condition: service_healthy
+      prediction-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   auth-service:
     build:
@@ -32,6 +42,12 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   docs-service:
     build:
@@ -43,6 +59,12 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   websocket-service:
     build:
@@ -54,6 +76,12 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   prediction-service:
     build:
@@ -65,4 +93,9 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
-
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
