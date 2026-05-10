@@ -137,18 +137,23 @@ EOF
                 expression { return params.DEPLOY_AFTER_BUILD && params.DEPLOY_TARGET == 'aws' }
             }
             steps {
-                sshagent(credentials: ['aws-ec2-ssh-key']) {
+                withCredentials([sshUserPrivateKey(
+                    credentialsId: 'aws-ec2-ssh-key',
+                    keyFileVariable: 'AWS_SSH_KEY',
+                    usernameVariable: 'AWS_SSH_USER'
+                )]) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "mkdir -p '${AWS_APP_DIR}'"
+                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "mkdir -p '${AWS_APP_DIR}'"
 
                         rsync -az --delete \
+                            -e "ssh -i $AWS_SSH_KEY -o StrictHostKeyChecking=no" \
                             --exclude '.env.aws' \
                             --exclude '.env' \
                             "$BACKEND_DIR/" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/"
 
-                        scp -o StrictHostKeyChecking=no "$BACKEND_DIR/.env.aws" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/.env.aws"
+                        scp -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "$BACKEND_DIR/.env.aws" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/.env.aws"
 
-                        ssh -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
+                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
                             cd '${AWS_APP_DIR}' && \
                             docker compose -f docker-compose.aws.yml --env-file .env.aws up -d --build --remove-orphans
                         "
