@@ -4,9 +4,9 @@ This repo already has Dockerized backend microservices, so the simplest AWS targ
 
 - Frontend on Vercel
 - Backend on one EC2 instance with Docker Compose
-- PostgreSQL on AWS RDS
+- PostgreSQL in Docker on the same EC2 instance for the first deployment
 
-That keeps the current architecture intact and avoids uploading random local folders to EC2.
+That keeps the current architecture intact, avoids Render sleep behavior, and avoids adding RDS complexity on day one.
 
 ## Why your earlier upload felt stuck
 
@@ -18,11 +18,10 @@ The new root-level [`.dockerignore`](/C:/Your%20Docs/backend/.dockerignore:1) pr
 ## Recommended AWS shape
 
 1. Create an EC2 Ubuntu instance.
-2. Create an RDS PostgreSQL database.
-3. Point a subdomain like `api.example.com` to the EC2 public IP.
-4. Run the backend with [docker-compose.aws.yml](/C:/Your%20Docs/backend/docker-compose.aws.yml:1).
-5. Put Nginx or an AWS load balancer in front of port `8000` so Vercel can call the backend over HTTPS.
-6. In Vercel, set `REACT_APP_API_URL=https://api.example.com`.
+2. Point a subdomain like `api.example.com` to the EC2 public IP.
+3. Run the backend with [docker-compose.aws.yml](/C:/Your%20Docs/backend/docker-compose.aws.yml:1).
+4. Put Nginx in front of port `8000` so Vercel can call the backend over HTTPS.
+5. In Vercel, set `REACT_APP_API_URL=https://api.example.com`.
 
 ## Important note about Vercel
 
@@ -38,8 +37,14 @@ Using plain `http://EC2-IP:8000` from a Vercel-hosted site is not a good product
    - `FRONTEND_URL`
    - `CORS_ORIGINS`
    - `SECRET_KEY`
-   - `SQL_DATABASE_URL`
+   - `POSTGRES_PASSWORD`
    - `PREDICTION_API_KEY`
+
+For the simple EC2 setup, keep:
+
+- `POSTGRES_DB=your_docs`
+- `POSTGRES_USER=postgres`
+- `SQL_DATABASE_URL=postgresql://postgres:<same-password>@postgres:5432/your_docs`
 
 ## EC2 one-time setup
 
@@ -86,6 +91,8 @@ docker compose -f docker-compose.aws.yml logs -f gateway-service
 curl http://localhost:8000/health
 ```
 
+The database is private inside Docker networking, so you do not need to open port `5432` on the EC2 security group.
+
 If you want the stack to come back after a reboot:
 
 ```bash
@@ -95,7 +102,7 @@ sudo systemctl enable docker
 ## What is public vs internal
 
 - `gateway-service` is the only public-facing service
-- `auth-service`, `docs-service`, `websocket-service`, and `prediction-service` stay private inside Docker networking
+- `auth-service`, `docs-service`, `websocket-service`, `prediction-service`, and `postgres` stay private inside Docker networking
 
 ## Next step after containers work
 
