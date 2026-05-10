@@ -7,7 +7,7 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'DEPLOY_TARGET', choices: ['render', 'aws'], description: 'Choose where Jenkins should deploy the backend.')
+        choice(name: 'DEPLOY_TARGET', choices: ['aws', 'render'], description: 'Choose where Jenkins should deploy the backend.')
         booleanParam(name: 'DEPLOY_AFTER_BUILD', defaultValue: true, description: 'Deploy to the AWS EC2 backend server after the pipeline passes.')
         string(name: 'FRONTEND_URL', defaultValue: 'https://your-vercel-app.vercel.app', description: 'Public Vercel frontend URL allowed by backend CORS.')
         string(name: 'AWS_EC2_HOST', defaultValue: 'api.example.com', description: 'EC2 host or DNS name that receives the backend deployment.')
@@ -84,7 +84,7 @@ EOF
             steps {
                 sh '''
                     cd "$BACKEND_DIR"
-                    if [ "${DEPLOY_TARGET:-render}" = "aws" ]; then
+                    if [ "${DEPLOY_TARGET:-aws}" = "aws" ]; then
                         docker compose -f docker-compose.aws.yml --env-file .env.aws config >/dev/null
                     else
                         docker compose -f docker-compose.yml config >/dev/null
@@ -97,7 +97,7 @@ EOF
             steps {
                 sh '''
                     cd "$BACKEND_DIR"
-                    if [ "${DEPLOY_TARGET:-render}" = "aws" ]; then
+                    if [ "${DEPLOY_TARGET:-aws}" = "aws" ]; then
                         docker compose -f docker-compose.aws.yml --env-file .env.aws build
                     else
                         docker compose -f docker-compose.yml build
