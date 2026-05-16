@@ -143,20 +143,26 @@ EOF
                     usernameVariable: 'AWS_SSH_USER'
                 )]) {
                     sh '''
-                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "mkdir -p '${AWS_APP_DIR}'"
+                        CLEAN_KEY="$(mktemp)"
+                        tr -d '\\r' < "$AWS_SSH_KEY" > "$CLEAN_KEY"
+                        chmod 600 "$CLEAN_KEY"
+
+                        ssh -i "$CLEAN_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "mkdir -p '${AWS_APP_DIR}'"
 
                         rsync -az --delete \
-                            -e "ssh -i $AWS_SSH_KEY -o StrictHostKeyChecking=no" \
+                            -e "ssh -i $CLEAN_KEY -o StrictHostKeyChecking=no" \
                             --exclude '.env.aws' \
                             --exclude '.env' \
                             "$BACKEND_DIR/" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/"
 
-                        scp -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "$BACKEND_DIR/.env.aws" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/.env.aws"
+                        scp -i "$CLEAN_KEY" -o StrictHostKeyChecking=no "$BACKEND_DIR/.env.aws" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/.env.aws"
 
-                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
+                        ssh -i "$CLEAN_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
                             cd '${AWS_APP_DIR}' && \
                             docker compose -f docker-compose.aws.yml --env-file .env.aws up -d --build --remove-orphans
                         "
+
+                        rm -f "$CLEAN_KEY"
                     '''
                 }
             }
