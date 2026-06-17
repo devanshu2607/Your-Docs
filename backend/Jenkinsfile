@@ -9,8 +9,11 @@ pipeline {
     parameters {
         choice(name: 'DEPLOY_TARGET', choices: ['aws', 'render'], description: 'Choose where Jenkins should deploy the backend.')
         booleanParam(name: 'DEPLOY_AFTER_BUILD', defaultValue: true, description: 'Deploy to the AWS EC2 backend server after the pipeline passes.')
+        booleanParam(name: 'START_AWS_INSTANCE', defaultValue: true, description: 'Automatically start the AWS EC2 instance if it is stopped.')
+        string(name: 'AWS_INSTANCE_ID', defaultValue: 'i-0abcdef1234567890', description: 'AWS EC2 Instance ID to start/query.')
+        string(name: 'AWS_REGION', defaultValue: 'us-east-1', description: 'AWS region of your EC2 instance.')
         string(name: 'FRONTEND_URL', defaultValue: 'https://your-vercel-app.vercel.app', description: 'Public Vercel frontend URL allowed by backend CORS.')
-        string(name: 'AWS_EC2_HOST', defaultValue: 'api.example.com', description: 'EC2 host or DNS name that receives the backend deployment.')
+        string(name: 'AWS_EC2_HOST', defaultValue: 'api.example.com', description: 'Default EC2 host or DNS name. Overridden automatically if START_AWS_INSTANCE is true.')
         string(name: 'AWS_EC2_USER', defaultValue: 'ubuntu', description: 'SSH user for the EC2 instance.')
         string(name: 'AWS_APP_DIR', defaultValue: '/opt/your-docs/backend', description: 'Remote directory where the backend stack lives on EC2.')
         string(name: 'BACKEND_HEALTHCHECK_URL', defaultValue: 'https://api.example.com/health', description: 'Public health endpoint checked after deployment.')
@@ -36,12 +39,46 @@ pipeline {
             }
         }
 
+        stage('Start AWS Instance') {
+            when {
+                expression { return params.DEPLOY_TARGET == 'aws' && params.START_AWS_INSTANCE }
+            }
+            steps {
+                script {
+                    echo "Checking/Starting EC2 instance ${params.AWS_INSTANCE_ID} in region ${params.AWS_REGION}..."
+                    sh """
+                        aws ec2 start-instances --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
+                        aws ec2 wait instance-running --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
+                    """
+                    
+                    def ip = sh(script: "aws ec2 describe-instances --instance-ids '${params.AWS_INSTANCE_ID}' --region '${params.AWS_REGION}' --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
+                    echo "EC2 Instance is running at public IP: ${ip}"
+                    
+                    env.AWS_EC2_HOST = ip
+                }
+            }
+        }
+
+        stage('Configure Host IP') {
+            when {
+                expression { return params.DEPLOY_TARGET == 'aws' && !params.START_AWS_INSTANCE }
+            }
+            steps {
+                script {
+                    env.AWS_EC2_HOST = params.AWS_EC2_HOST
+                }
+            }
+        }
+
         stage('Prepare AWS Env') {
             when {
                 expression { return params.DEPLOY_TARGET == 'aws' }
             }
             steps {
                 sh '''
+                    # Extract password from SQL_DATABASE_URL connection string
+                    PASS=$(echo "$SQL_DATABASE_URL" | sed -E 's|.*://[^:]+:([^@]+)@.*|\\1|')
+
                     cat > "$BACKEND_DIR/.env.aws" <<EOF
 SQL_DATABASE_URL=$SQL_DATABASE_URL
 SECRET_KEY=$SECRET_KEY
@@ -55,6 +92,7 @@ PREDICTION_PROVIDER=openrouter
 PREDICTION_API_KEY=$PREDICTION_API_KEY
 PREDICTION_MODEL=qwen/qwen3-next-80b-a3b-instruct:free
 PREDICTION_BASE_URL=https://openrouter.ai/api/v1
+POSTGRES_PASSWORD=$PASS
 EOF
                 '''
             }
@@ -94,14 +132,13 @@ EOF
         }
 
         stage('Build Backend Images') {
+            when {
+                expression { return params.DEPLOY_TARGET != 'aws' }
+            }
             steps {
                 sh '''
                     cd "$BACKEND_DIR"
-                    if [ "${DEPLOY_TARGET:-aws}" = "aws" ]; then
-                        docker compose -f docker-compose.aws.yml --env-file .env.aws build
-                    else
-                        docker compose -f docker-compose.yml build
-                    fi
+                    docker compose -f docker-compose.yml build
                 '''
             }
         }
@@ -172,10 +209,19 @@ EOF
                     else
                         TARGET_URL="${BACKEND_HEALTHCHECK_URL}"
                         FAILURE_MSG="AWS backend health check failed"
+                        if echo "$TARGET_URL" | grep -q "api.example.com"; then
+                            TARGET_URL="http://${AWS_EC2_HOST}:8000/health"
+                        fi
                     fi
                     for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
                         if curl -fsS "$TARGET_URL"; then
                             exit 0
+                        fi
+                        if [ "${DEPLOY_TARGET}" = "aws" ] && [ "$TARGET_URL" != "http://${AWS_EC2_HOST}:8000/health" ]; then
+                            echo "Primary DNS check failed. Trying fallback direct IP check at http://${AWS_EC2_HOST}:8000/health..."
+                            if curl -fsS "http://${AWS_EC2_HOST}:8000/health"; then
+                                exit 0
+                            fi
                         fi
                         sleep 20
                     done
