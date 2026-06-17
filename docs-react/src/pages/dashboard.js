@@ -49,13 +49,14 @@ function stripJson(content) {
             if (!node) return "";
             if (typeof node === 'string') return node;
             if (node.text) return node.text;
+            if (node.root) return extractText(node.root);
             if (Array.isArray(node)) return node.map(extractText).join(" ");
             if (node.children) return extractText(node.children);
             if (node.content) return extractText(node.content);
             return "";
         };
         const extracted = extractText(parsed);
-        if (extracted.trim()) return extracted;
+        if (extracted.trim()) return extracted.trim();
     } catch (e) {
         // Not JSON, fall back to regex
     }
