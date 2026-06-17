@@ -2,6 +2,13 @@
 
 This repo still contains the existing Render deployment notes below.
 
+## Project Documentation
+
+- [backend/LLD_HINGLISH.md](/C:/Your%20Docs/backend/LLD_HINGLISH.md:1) contains the Low Level Design for services, APIs, database models, WebSocket flow, prediction logic, and deployment internals.
+- [backend/LOW_LEVEL_FLOW_DIAGRAMS.md](/C:/Your%20Docs/backend/LOW_LEVEL_FLOW_DIAGRAMS.md:1) contains Mermaid low-level flow diagrams for runtime, APIs, WebSocket, prediction, database, and deployment.
+- [backend/PROJECT_FULL_REPORT_HINGLISH.md](/C:/Your%20Docs/backend/PROJECT_FULL_REPORT_HINGLISH.md:1) contains the full project architecture report in Hinglish.
+- [backend/DEVOPS_REPORT.md](/C:/Your%20Docs/backend/DEVOPS_REPORT.md:1) contains the DevOps and deployment report.
+
 If you want to keep the frontend on Vercel and move only the backend to AWS, use:
 
 - [backend/DEPLOY_AWS.md](/C:/Your%20Docs/backend/DEPLOY_AWS.md:1)

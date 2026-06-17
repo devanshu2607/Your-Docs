@@ -2,477 +2,422 @@
 
 ## 1. Project Overview
 
-Your-Docs is deployed with a split architecture:
+Your-Docs ek split deployment architecture follow karta hai jahan frontend aur backend alag responsibilities me host kiye ja sakte hain.
 
-- Frontend hosted on Vercel
-- Backend hosted on AWS EC2
-- Backend services packaged as Docker containers
-- Nginx used as a reverse proxy
-- PostgreSQL used as the application database
-- HTTPS enabled with Let's Encrypt
-- Jenkins prepared as the CI/CD automation layer
+Current project structure aur configs ke base par deployment picture ye hai:
 
-This setup moves the backend away from Render free-tier cold-start behavior and gives more direct control over uptime, deployment, and infrastructure.
+- Frontend React app
+- Backend Python FastAPI microservice-style architecture
+- Dockerized backend services
+- Gateway-based routing
+- WebSocket collaboration support
+- Prediction service for next-word suggestions
+- Jenkins-based CI/CD pipeline
+- AWS EC2 deployment path
+- Render deployment path bhi maintained hai
 
-## 2. Why DevOps Was Needed in This Project
+Important current-state clarification:
 
-This project includes multiple moving parts:
+- Deployment docs me AWS EC2 + Nginx architecture describe ki gayi hai
+- Render blueprint bhi repo me available hai
+- AWS compose file me local Postgres service defined hai
+- Current `.env.aws` external hosted PostgreSQL URL use karti hui dikhti hai
 
-- a React frontend
-- several Python microservices
-- authentication and document APIs
-- websocket-based collaboration
-- a prediction service
-- a database
+Iska matlab repo ek practical multi-environment deployment state me hai, jahan architecture mature ho chuka hai aur production/runtime choices deployment target ke hisaab se vary kar sakti hain.
 
-If these pieces are managed manually, deployment becomes slow and error-prone. DevOps practices were introduced so the project can:
+## 2. Why DevOps Was Needed
 
-- deploy consistently
-- run the same way across environments
-- keep secrets out of source control
-- reduce manual setup on the server
-- support repeatable deployment through Jenkins
+Project me multiple moving parts hain:
 
-## 3. Problems in the Earlier Deployment
+- React frontend
+- auth service
+- docs service
+- websocket service
+- prediction service
+- gateway service
+- database
 
-The backend was previously deployed on Render free services. That created an operational issue:
+Agar in sabko manually deploy kiya jaye to issues aate:
 
-- the service spun down after inactivity
-- the first request in the morning hit a sleeping backend
-- login requests returned `502 Bad Gateway`
+- inconsistent environments
+- secrets leakage ka risk
+- repeated manual setup
+- deployment errors
+- debugging complexity
 
-This was not a frontend bug. It was an infrastructure behavior caused by the platform's free-tier sleep model.
+DevOps practices use karne ka goal tha:
 
-## 4. New Deployment Architecture
+- deployment repeatable banana
+- infrastructure ko organized rakhna
+- backend services ko consistently package karna
+- CI/CD pipeline banana
+- frontend aur backend integration stable rakhna
 
-The current deployment architecture is:
+## 3. Earlier Deployment Problem
 
-1. User opens the frontend on Vercel.
-2. The frontend sends API requests to `https://yourdocs.webhop.me`.
-3. Nginx on AWS EC2 receives the request.
-4. Nginx forwards the request to the gateway container on port `8000`.
-5. The gateway routes the request to internal backend services.
-6. Internal services read and write data using PostgreSQL.
+Project ke earlier deployment notes se clear hota hai ki backend pehle Render free services par tha.
 
-This design separates responsibilities cleanly:
+Us setup me main issue tha:
 
-- Vercel serves static frontend files
-- EC2 hosts backend runtime and supporting services
-- Nginx handles public web traffic
-- Docker Compose manages service orchestration
+- inactivity ke baad backend sleep ho jata tha
+- first request delay ya failure de sakti thi
+- login ya API calls `502 Bad Gateway` tak fail kar sakti thi
 
-## 5. AWS EC2 in This Project
+Ye application logic ka bug nahi tha. Ye platform-level cold-start issue tha.
 
-### What EC2 Is
+## 4. Current Deployment Architecture
 
-Amazon EC2 is a virtual server in the cloud. In this project, the EC2 instance acts as the backend host machine.
+Recommended and documented AWS deployment architecture ye hai:
 
-It runs:
+1. Frontend Vercel par host hota hai.
+2. Frontend backend URL ko hit karta hai.
+3. Public traffic Nginx tak aata hai.
+4. Nginx gateway-service ko proxy karta hai.
+5. Gateway internal microservices ko route karta hai.
+6. Backend services database se interact karti hain.
 
-- Ubuntu Linux
-- Docker Engine
-- Docker Compose
-- Nginx
-- the backend containers
-- the PostgreSQL container
+Is architecture ke roles:
 
-### Why EC2 Was Chosen
+- Vercel: frontend static hosting
+- EC2: backend compute host
+- Docker Compose: container orchestration
+- Gateway: backend entrypoint
+- Nginx: reverse proxy and SSL termination
 
-EC2 was chosen because:
+## 5. Microservice Architecture in DevOps Context
 
-- it does not auto-sleep like Render free web services
-- it provides direct SSH access
-- Docker-based deployments work well on it
-- it fits a low-cost or free-tier learning setup
-
-### Important EC2 Operational Behavior
-
-- If the instance is **running**, the backend can be accessed and Jenkins can deploy to it.
-- If the instance is **stopped**, the backend is unavailable and Jenkins cannot SSH into it.
-- When an EC2 instance is stopped and started again, the public IP can change unless a fixed Elastic IP is used.
-
-That means in the current setup:
-
-- deployment requires the instance to be **running**
-- if the IP changes, the free hostname may need to be updated
-
-## 6. SSH Access and Server Authentication
-
-Access to the EC2 server is done using SSH and a `.pem` private key.
-
-Example command used:
-
-```bash
-ssh -i backend_docs.pem ubuntu@EC2_PUBLIC_IP
-```
-
-Meaning:
-
-- `ssh` starts a secure shell session
-- `-i` specifies the private key file
-- `ubuntu` is the default username for the Ubuntu EC2 image
-- `EC2_PUBLIC_IP` is the public address of the server
-
-This is the secure remote administration mechanism used for:
-
-- first-time server setup
-- checking logs
-- running deployment commands manually
-- allowing Jenkins to deploy over SSH
-
-## 7. Docker Usage in the Project
-
-### Why Docker Is Used
-
-Docker packages each backend service together with its runtime and dependencies. This avoids "works on my machine" problems and makes deployment reproducible.
-
-### Containers Used
-
-The backend deployment includes these containers:
+Backend me following services defined hain:
 
 - `gateway-service`
 - `auth-service`
 - `docs-service`
 - `websocket-service`
 - `prediction-service`
+
+DevOps angle se iska benefit:
+
+- service-level packaging possible hai
+- deployment more modular hota hai
+- failures isolate karna easier hota hai
+- compose-based orchestration simple rehti hai
+
+Important nuance:
+
+Ye pure independently owned microservices nahi hain. Ye shared-code microservice-style architecture hai kyunki services same repo ke shared Python modules reuse karti hain.
+
+## 6. AWS EC2 Role
+
+AWS EC2 backend host machine ka role play karta hai.
+
+EC2 par expected stack:
+
+- Ubuntu Linux
+- Docker Engine
+- Docker Compose plugin
+- backend containers
+- Nginx reverse proxy
+
+EC2 choose karne ke reasons:
+
+- Render free-tier sleep issue avoid hota hai
+- direct SSH access milta hai
+- Docker-based deployment easy hota hai
+- infra control zyada milta hai
+
+Operational reality:
+
+- EC2 running hona chahiye tabhi deploy possible hai
+- stop/start ke baad public IP change ho sakta hai
+- fixed DNS ya Elastic IP production stability ke liye better hoga
+
+## 7. Docker Usage
+
+Har backend service ka apna Dockerfile present hai. Iska matlab har service independently container image me package ho sakti hai.
+
+Docker ke main benefits:
+
+- consistent runtime
+- dependency isolation
+- fast redeploy/restart
+- local aur remote environments me similarity
+
+Backend service containers:
+
+- `gateway-service`
+- `auth-service`
+- `docs-service`
+- `websocket-service`
+- `prediction-service`
+
+AWS compose file me additionally:
+
 - `postgres`
-
-### Benefits of Containerization Here
-
-- services are isolated from each other
-- deployments are repeatable
-- server setup is lighter than installing each service manually
-- rollback and restart operations are easier
-- local and remote deployment patterns become similar
 
 ## 8. Docker Compose Usage
 
-Docker Compose is used to run the full backend stack from one file:
+Repo me do main compose patterns dikhte hain:
 
+- `backend/docker-compose.yml`
 - `backend/docker-compose.aws.yml`
 
-It defines:
+### Local/Simple Compose
 
-- which services exist
-- which Dockerfiles build them
-- which environment variables are passed in
-- which ports are exposed
-- service dependency order
-- health checks
-- the persistent volume for PostgreSQL
+Local compose pattern me services directly mapped ports par chalti hain:
 
-### Important Compose Command
+- gateway on `8000`
+- auth on `8001`
+- docs on `8002`
+- websocket on `8003`
+- prediction on `8004`
+
+Ye local development aur quick integration testing ke liye convenient hai.
+
+### AWS Compose
+
+AWS compose pattern me:
+
+- gateway public-facing service hoti hai
+- baaki services internal Docker network me rehti hain
+- health checks defined hain
+- service dependencies configured hain
+- Postgres service available hai
+
+Typical command:
 
 ```bash
 docker compose --env-file .env.aws -f docker-compose.aws.yml up -d --build
 ```
 
-This command means:
+## 9. Environment and Secret Management
 
-- `--env-file .env.aws`: load runtime configuration
-- `-f docker-compose.aws.yml`: use the AWS deployment stack
-- `up`: start the services
-- `-d`: run in background
-- `--build`: rebuild images before starting
+Environment-driven configuration use ki gayi hai.
 
-### Useful Operational Commands
+Important files:
 
-```bash
-docker compose --env-file .env.aws -f docker-compose.aws.yml ps
-docker compose --env-file .env.aws -f docker-compose.aws.yml logs postgres
-docker compose --env-file .env.aws -f docker-compose.aws.yml down
-```
+- `.env`
+- `.env.aws`
+- `.env.aws.example`
 
-These help with:
+Typical important variables:
 
-- checking service status
-- debugging startup problems
-- stopping the environment cleanly
-
-## 9. Environment Management
-
-The backend configuration is stored in:
-
-- `.env.aws.example` as a template
-- `.env.aws` as the real runtime file on the server
-
-### Why This Matters
-
-Sensitive information should not be hardcoded or committed publicly. This includes:
-
-- database credentials
-- secret keys
-- API keys
-- host configuration
-
-### Important Variables
-
-- `POSTGRES_DB`
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
 - `SQL_DATABASE_URL`
 - `SECRET_KEY`
 - `FRONTEND_URL`
 - `CORS_ORIGINS`
+- `PREDICTION_PROVIDER`
 - `PREDICTION_API_KEY`
+- `PREDICTION_MODEL`
+- internal service hostports
 
-This pattern is a standard DevOps practice because it keeps:
+Why important:
 
-- code separate from secrets
-- deployment values environment-specific
-- credentials outside Git history
+- secrets code se separate rehte hain
+- environment-specific configuration easy hoti hai
+- CI/CD integration better hota hai
 
-## 10. PostgreSQL Usage
+Security note:
 
-PostgreSQL is the project's main relational database.
+Sensitive env files source control me commit nahi hone chahiye. Agar real secrets accidentally committed ho gaye hon to unko immediately rotate karna best practice hai.
 
-### Why It Is Used
+## 10. Database Strategy
 
-It stores:
+Project PostgreSQL-compatible relational database use karta hai.
 
-- users
-- document metadata
-- collaboration state
-- session data
-- application records
+Docs aur configs se do deployment possibilities nikalti hain:
 
-### How It Is Hosted Here
+### Option A: Local Postgres on EC2 via Docker
 
-For the current free-friendly deployment, PostgreSQL runs in a Docker container on the same EC2 instance.
+AWS compose file me `postgres` service defined hai. Iska benefit:
 
-Benefits:
+- simple single-machine setup
+- low operational complexity
+- easy first deployment
 
-- simpler setup than RDS
-- lower learning overhead
-- no extra managed service required during the first deployment
+### Option B: External Hosted PostgreSQL
 
-Tradeoff:
+Current `.env.aws` ke observed value ke hisaab se `SQL_DATABASE_URL` ek external hosted PostgreSQL endpoint par point karti hui lagti hai.
 
-- the database is tied to the EC2 machine
-- this is acceptable for a student/personal deployment but less ideal than a managed database for larger production workloads
+Iska benefit:
+
+- DB app machine se decouple ho jata hai
+- persistence better handle hoti hai
+- EC2 lifecycle se DB less dependent ho jata hai
+
+Best practical conclusion:
+
+Repo both patterns support karta hai, but current runtime reality external managed DB ki taraf move hui lagti hai.
 
 ## 11. Nginx Usage
 
-### What Nginx Is
+Nginx deployment architecture ka important part hai.
 
-Nginx is a web server and reverse proxy. In this project it sits in front of the backend containers.
+Uska role:
 
-### Why Nginx Is Used
+- public HTTP/HTTPS traffic receive karna
+- reverse proxy ke roop me gateway-service ko forward karna
+- SSL termination handle karna
+- websocket support provide karna
 
-Nginx is responsible for:
+Typical traffic path:
 
-- accepting public traffic on port `80` and `443`
-- forwarding API traffic to the backend gateway
-- forwarding websocket traffic correctly
-- acting as the integration point for HTTPS certificates
+Client -> Nginx -> Gateway -> Internal Services
 
-### Reverse Proxy Role
+Benefits:
 
-Instead of exposing the gateway container directly to the public internet, Nginx handles incoming requests and proxies them internally to:
+- backend containers ko directly expose nahi karna padta
+- SSL centrally manage hota hai
+- clean public endpoint milta hai
 
-- `127.0.0.1:8000`
+Important repo observation:
 
-This improves:
+Deployment docs me Nginx ka role clearly defined hai, lekin committed repo me actual tracked `nginx.conf` ya site config file currently available nahi mili. Isliye Nginx architecture documented hai, but concrete config repository ke andar versioned form me present nahi hai.
 
-- security
-- flexibility
-- SSL handling
-- public URL stability
+## 12. HTTPS and Public Access
 
-## 12. HTTPS and SSL
+Docs ke hisaab se backend ko HTTPS ke through expose karna recommended hai, especially kyunki frontend Vercel par HTTPS me host hota hai.
 
-The backend is publicly available through:
+HTTPS important hai because:
 
-- `https://yourdocs.webhop.me`
+- browser mixed-content issues avoid hote hain
+- login traffic secure hota hai
+- WebSocket secure `wss://` me run ho sakta hai
+- production readiness improve hoti hai
 
-SSL was added using:
+SSL ke liye docs me Let's Encrypt / Certbot approach mention hai.
 
-- Let's Encrypt
-- Certbot
+## 13. Frontend-Backend Integration
 
-### Why HTTPS Matters
+Frontend env-based backend URLs use karta hai:
 
-The frontend is hosted on Vercel over HTTPS, so the backend should also be served securely. HTTPS is important for:
+- `REACT_APP_API_URL`
+- `REACT_APP_WS_URL`
 
-- browser trust
-- secure login traffic
-- avoiding mixed-content issues
-- production-style deployment
+Frontend behavior:
 
-### Result
+- API URL backend gateway ko point karta hai
+- WebSocket URL explicitly diya ja sakta hai
+- agar WS URL na ho, frontend API URL se ws/wss derive kar leta hai
 
-The backend health endpoint became available securely at:
+Isse deployment flexible ho jati hai across:
 
-- `https://yourdocs.webhop.me/health`
+- localhost
+- Render
+- AWS custom domain
 
-## 13. Free Hostname Usage
+## 14. Prediction Service from DevOps Perspective
 
-Because there was no purchased custom domain, a free hostname was used:
+Prediction service architecture me special point hai.
 
-- `yourdocs.webhop.me`
+Legacy artifacts:
 
-This provides:
+- repo me old LSTM model files present hain
 
-- a stable public name
-- easier access than a raw IP address
-- compatibility with Nginx and SSL setup
+Current runtime:
 
-The main limitation is that if the EC2 public IP changes after stop/start, the hostname mapping may need to be updated.
+- prediction-service external API mode use karti hai
+- default provider `openrouter` hai
+- model env variable se configured hai
 
-## 14. Frontend and Backend Integration
+DevOps benefit of current approach:
 
-The frontend remains on Vercel, while the backend runs on EC2.
+- heavy local ML warm-up avoid hota hai
+- small EC2 hosts par deployment easier hota hai
+- TensorFlow inference dependency reduce hoti hai
 
-The frontend should point to:
+Tradeoff:
 
-```text
-REACT_APP_API_URL=https://yourdocs.webhop.me
-REACT_APP_WS_URL=wss://yourdocs.webhop.me
-```
+- external provider dependency add hoti hai
+- API key management zaruri hota hai
+- network dependency aati hai
 
-This ensures:
+## 15. Jenkins CI/CD Pipeline
 
-- API requests use the secure backend URL
-- websocket connections use `wss`
-- the frontend and backend work together across different hosting platforms
+`backend/Jenkinsfile` me automated pipeline defined hai.
 
-## 15. Jenkins CI/CD Usage
+Pipeline capabilities:
 
-### Why Jenkins Is Included
+- Git checkout
+- `.env` or `.env.aws` generation
+- Docker Compose validation
+- backend image build
+- Render deploy hooks
+- AWS EC2 remote deployment
+- post-deploy health checks
 
-Jenkins is used as the CI/CD automation system for the backend.
+### AWS Deploy Flow
 
-It helps automate:
+1. Jenkins repository checkout karta hai.
+2. Build-time environment file generate hoti hai.
+3. Compose file validate hoti hai.
+4. Docker images build hoti hain.
+5. Jenkins SSH key use karke EC2 connect karta hai.
+6. `rsync` se backend files remote machine par sync hoti hain.
+7. `.env.aws` remote copy hoti hai.
+8. Remote compose command se services up hoti hain.
+9. Health endpoint poll kiya jata hai.
 
-- pulling the latest code from GitHub
-- preparing environment files using secure credentials
-- validating Docker Compose configuration
-- building backend Docker images
-- deploying the backend to AWS EC2
-- running a post-deploy health check
+### Render Deploy Flow
 
-### Jenkinsfile Used
+Jenkins Render deploy hooks ko POST request se trigger kar sakta hai.
 
-The main automation definition is:
+## 16. Health Checks and Reliability
 
-- `backend/Jenkinsfile`
+Compose files me service health checks defined hain. Ye help karti hain:
 
-### Pipeline Flow
+- startup verification me
+- dependency ordering me
+- basic uptime observation me
 
-The current Jenkins pipeline works like this:
+Gateway aur backend services health endpoints expose karti hain, jo CI/CD ke baad validation ke kaam aati hain.
 
-1. Developer updates code locally.
-2. Code is pushed to GitHub.
-3. Jenkins checks out the latest repository state.
-4. Jenkins creates `.env.aws` at build time from Jenkins credentials.
-5. Jenkins validates the Compose file.
-6. Jenkins builds the Docker images.
-7. Jenkins connects to EC2 over SSH.
-8. Jenkins syncs backend files to the server using `rsync`.
-9. Jenkins copies `.env.aws` to the remote backend directory.
-10. Jenkins runs Docker Compose on the EC2 server.
-11. Jenkins checks the public `/health` endpoint.
+## 17. What This DevOps Setup Achieves
 
-### What Jenkins Credentials Store
+Current setup ne ye improvements diye:
 
-Credentials are expected for values such as:
+- backend ko structured service packaging mili
+- deployment more repeatable hua
+- Render-only dependency reduce hui
+- AWS deployment path ready hua
+- gateway-based traffic flow clear hua
+- Jenkins automation available hui
+- Nginx + HTTPS ready deployment model document hua
 
-- SQL database URL
-- backend secret key
-- prediction API key
-- EC2 SSH key
+## 18. Risks and Current Limitations
 
-This is good DevOps practice because secrets remain outside Git.
+Abhi bhi kuch practical limitations hain:
 
-### Important Limitation
+- EC2 running hona deployment ke liye mandatory hai
+- public IP instability issue ho sakta hai
+- Nginx config repo me tracked nahi hai
+- local Postgres aur external Postgres dono patterns documented/visible hain, so operational clarity maintain karni padegi
+- prediction external provider par dependent hai
+- env secrets ko source control se strictly protect karna chahiye
 
-The current Jenkins pipeline can deploy to EC2 **only if the EC2 instance is running**.
+## 19. Recommended Next Improvements
 
-If the instance is stopped:
+Future DevOps improvements:
 
-- SSH will fail
-- file sync will fail
-- remote Docker commands will fail
-- deployment will fail
-
-So the current process is:
-
-1. start EC2
-2. wait until it is reachable
-3. run Jenkins deployment
-
-## 16. What Was Achieved Technically
-
-This DevOps work achieved the following:
-
-- moved the backend away from Render free-tier cold starts
-- created a more stable backend environment on EC2
-- containerized backend services for repeatable deployment
-- added PostgreSQL to the deployment stack
-- added Nginx reverse proxying
-- enabled HTTPS
-- added a public hostname
-- prepared Jenkins-based CI/CD for backend automation
-
-## 17. Benefits of the Current Setup
-
-### Operational Benefits
-
-- more control over infrastructure
-- no forced Render sleep behavior
-- consistent deployments
-- easier service debugging through Docker logs
-- reusable deployment flow
-
-### Learning Benefits
-
-This project now demonstrates hands-on experience with:
-
-- Linux server administration
-- cloud deployment on AWS
-- SSH-based access
-- Docker and Docker Compose
-- reverse proxying with Nginx
-- HTTPS setup with Certbot
-- environment and secret management
-- Jenkins CI/CD pipeline design
-
-## 18. Current Risks and Practical Limitations
-
-The setup is solid for learning and demos, but still has practical limitations:
-
-- EC2 may need manual start before demos if it is intentionally stopped
-- the public IP may change after restart
-- the free hostname may need updating if IP changes
-- the database is on the same machine as the app
-- free-tier usage on AWS must be monitored
-- exposed API keys should be rotated immediately if leaked
-
-## 19. Recommended Future Improvements
-
-If the project grows, the next DevOps upgrades could include:
-
-- use a fixed Elastic IP or paid domain
-- move PostgreSQL to a managed database such as AWS RDS
-- add automatic EC2 start/stop scripting for Jenkins
-- add image publishing to a registry
-- add backup strategy for the database
-- add monitoring and alerting
-- add zero-downtime deployment strategy
+- Elastic IP ya custom domain use karna
+- Nginx config repo me version karna
+- secrets ko secret manager ya Jenkins credentials tak limit karna
+- database strategy ko single documented production path me finalize karna
+- backups aur monitoring add karna
+- image registry based deployment introduce karna
+- zero-downtime deployment strategy explore karna
 
 ## 20. Conclusion
 
-DevOps in this project was not just about deployment. It was used to solve a real reliability issue, standardize the backend runtime, secure public traffic, and prepare the project for repeatable CI/CD.
+Your-Docs ka DevOps setup ab ek strong portfolio-style architecture show karta hai jisme:
 
-The final system now combines:
+- React frontend
+- FastAPI microservice-style backend
+- Docker-based packaging
+- Docker Compose orchestration
+- AWS EC2 deployment path
+- Nginx reverse proxy design
+- PostgreSQL data layer
+- WebSocket collaboration
+- external AI prediction integration
+- Jenkins CI/CD automation
 
-- Vercel for frontend hosting
-- AWS EC2 for backend hosting
-- Docker for service packaging
-- Docker Compose for orchestration
-- PostgreSQL for persistent data
-- Nginx for reverse proxying
-- Certbot and Let's Encrypt for HTTPS
-- Jenkins for automated deployment
-
-This gives the project a practical production-style backbone while still staying approachable for learning and portfolio use.
+Sabse important baat ye hai ki DevOps yahan sirf hosting nahi, balki architecture stability, repeatable deployment, service separation, aur production-style backend operations ko support kar raha hai.
