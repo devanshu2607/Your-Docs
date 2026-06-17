@@ -3,6 +3,56 @@ import { useNavigate } from 'react-router-dom'
 import api from "../Auth/axios"
 import './User.css'
 
+// Helper function to return a theme-appropriate image based on document title/content keywords
+function getDocImage(title, content) {
+    const text = ((title || "") + " " + (content || "")).toLowerCase();
+    if (text.includes("code") || text.includes("develop") || text.includes("program") || text.includes("react") || text.includes("html") || text.includes("js")) {
+        return "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=800&q=80"; // Coding screen
+    }
+    if (text.includes("design") || text.includes("css") || text.includes("ui") || text.includes("ux") || text.includes("art") || text.includes("style")) {
+        return "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=800&q=80"; // UI design
+    }
+    if (text.includes("collab") || text.includes("team") || text.includes("meeting") || text.includes("chat") || text.includes("live")) {
+        return "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80"; // Collaboration
+    }
+    if (text.includes("write") || text.includes("note") || text.includes("draft") || text.includes("book") || text.includes("story") || text.includes("content")) {
+        return "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80"; // Writing with pen
+    }
+    // Fallback collection
+    const fallbacks = [
+        "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=800&q=80", // Books
+        "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=800&q=80", // Typing on laptop
+        "https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80", // Workspace coffee
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80"  // Tech connection
+    ];
+    // Seeded choice to ensure consistency for each document
+    const seed = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+    const index = Math.abs(seed) % fallbacks.length;
+    return fallbacks[index];
+}
+
+// Clean Lexical/TipTap JSON structure or standard string to get plain text preview
+function stripJson(content) {
+    if (!content) return "";
+    try {
+        const parsed = JSON.parse(content);
+        const extractText = (node) => {
+            if (!node) return "";
+            if (typeof node === 'string') return node;
+            if (node.text) return node.text;
+            if (Array.isArray(node)) return node.map(extractText).join(" ");
+            if (node.children) return extractText(node.children);
+            if (node.content) return extractText(node.content);
+            return "";
+        };
+        const extracted = extractText(parsed);
+        if (extracted.trim()) return extracted;
+    } catch (e) {
+        // Not JSON, fall back to regex
+    }
+    return String(content).replace(/[{}"\\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 export default function Dashboard() {
     const [docs, setDocs]       = useState([])
     const [joinCode, setJoinCode] = useState("")
@@ -24,7 +74,6 @@ export default function Dashboard() {
             await api.delete(`/delete_docs/${id}`)
             await fetchDocs()
         } catch (err) {
-            // Backend returns 403 if not owner
             alert(err.response?.data?.detail || "Cannot delete")
         }
     }
@@ -37,35 +86,95 @@ export default function Dashboard() {
         }
     }
 
+    // Latest document is the first one in the list (or most recently updated)
+    const latestDoc = docs.length > 0 ? docs[0] : null;
+
     return (
         <div className="page">
+            {/* Navbar */}
             <div className="navbar">
-  <h2>CLAY</h2>
+                <h2>CLAY</h2>
+                <div className="nav-actions">
+                    <button onClick={() => navigate("/create_docs")}>
+                        + New Docs
+                    </button>
 
-  <div className="nav-actions">
-    <button onClick={() => navigate("/create_docs")}>
-      + New Docs
-    </button>
+                    <input
+                        placeholder="Enter code"
+                        value={joinCode}
+                        onChange={e => setJoinCode(e.target.value)}
+                    />
 
-    <input
-      placeholder="Enter code"
-      value={joinCode}
-      onChange={e => setJoinCode(e.target.value)}
-    />
+                    <button onClick={() => {
+                        if (!joinCode) return alert("Enter code")
+                        navigate(`/join/${joinCode}`)
+                    }}>
+                        Join Live 🔗
+                    </button>
 
-    <button onClick={() => {
-      if (!joinCode) return alert("Enter code")
-      navigate(`/join/${joinCode}`)
-    }}>
-      Join Live 🔗
-    </button>
+                    <button className="logout-btn" onClick={handleLogout}>
+                        Logout 🚪
+                    </button>
+                </div>
+            </div>
 
-    <button className="logout-btn" onClick={handleLogout}>
-      Logout 🚪
-    </button>
-  </div>
-</div>
+            {/* Split Hero Section (Hi there! Layout) */}
+            {latestDoc ? (
+                <div className="dashboard-hero">
+                    <div className="dashboard-hero-graphic">
+                        <img 
+                            src={getDocImage(latestDoc.title, latestDoc.content)} 
+                            alt={latestDoc.title} 
+                        />
+                    </div>
+                    <div className="dashboard-hero-content">
+                        <div className="hero-badge">Latest Document</div>
+                        <h1>
+                            Hi there!<br />
+                            Here is your latest<br />
+                            document<span className="cursor"></span>
+                        </h1>
+                        <p>
+                            <strong>{latestDoc.title}</strong> — {stripJson(latestDoc.content).slice(0, 160) || "Empty document"}...
+                        </p>
+                        <button 
+                            className="btn" 
+                            onClick={() => navigate(`/update/${latestDoc.id}`)}
+                        >
+                            Open Document 📄
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="dashboard-hero">
+                    <div className="dashboard-hero-graphic">
+                        <img 
+                            src="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80" 
+                            alt="Workspace" 
+                        />
+                    </div>
+                    <div className="dashboard-hero-content">
+                        <div className="hero-badge">Get Started</div>
+                        <h1>
+                            Hi there!<br />
+                            Create your first<br />
+                            document<span className="cursor"></span>
+                        </h1>
+                        <p>
+                            Clay Docs is a minimalist, collaborative real-time editor. Start by creating a new document or joining a live session.
+                        </p>
+                        <button 
+                            className="btn" 
+                            onClick={() => navigate("/create_docs")}
+                        >
+                            + Create Document 📄
+                        </button>
+                    </div>
+                </div>
+            )}
 
+            {/* All Documents Section */}
+            <h3 className="dashboard-section-title">Your Workspace</h3>
             <div className="docContainer">
                 {docs.length === 0 && (
                     <div className="emptyDocs">No documents yet. Create one!</div>
@@ -74,15 +183,8 @@ export default function Dashboard() {
                     <div key={doc.id} className="docRow">
                         <div className="doc-card-main" onClick={() => navigate(`/update/${doc.id}`)}>
                             <h3>{doc.title}</h3>
-                            {/* preview: strip JSON brackets for readability */}
-                            <p>{String(doc.content || "").replace(/[{}"\\[\]]/g, '').slice(0, 120)}</p>
+                            <p>{stripJson(doc.content).slice(0, 120) || "Empty document"}</p>
                         </div>
-
-                        {/* 
-                            Delete button is shown here for convenience.
-                            Backend will reject with 403 if user is not owner.
-                            The UpdateDocs page also shows delete only for owners.
-                        */}
                         <button onClick={() => handleDeleteDocs(doc.id)}>Delete</button>
                     </div>
                 ))}
