@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import api from "../Auth/axios"
 import './User.css'
 
+const themes = [
+    { bg: "#76e8b9", text: "#052e16", border: "rgba(5, 46, 22, 0.1)" }, // Mint
+    { bg: "#f472b6", text: "#4c0519", border: "rgba(76, 5, 25, 0.1)" }, // Pink
+    { bg: "#60a5fa", text: "#1e3a8a", border: "rgba(30, 58, 138, 0.1)" }, // Blue
+    { bg: "#c084fc", text: "#3b0764", border: "rgba(59, 7, 100, 0.1)" }, // Purple
+    { bg: "#fbbf24", text: "#451a03", border: "rgba(69, 26, 3, 0.1)" },  // Yellow
+    { bg: "#2dd4bf", text: "#115e59", border: "rgba(17, 94, 89, 0.1)" }   // Teal
+];
+
 // Helper function to return a theme-appropriate image based on document title/content keywords
 function getDocImage(title, content) {
     const text = ((title || "") + " " + (content || "")).toLowerCase();
@@ -90,7 +99,7 @@ export default function Dashboard() {
     const latestDoc = docs.length > 0 ? docs[0] : null;
 
     return (
-        <div className="page">
+        <div className="page dashboard-page">
             {/* Navbar */}
             <div className="navbar">
                 <h2>CLAY</h2>
@@ -171,19 +180,71 @@ export default function Dashboard() {
 
             {/* All Documents Section */}
             <h3 className="dashboard-section-title">Your Workspace</h3>
-            <div className="docContainer">
+            <div className="dashboard-grid">
                 {docs.length === 0 && (
-                    <div className="emptyDocs">No documents yet. Create one!</div>
-                )}
-                {docs.map(doc => (
-                    <div key={doc.id} className="docRow">
-                        <div className="doc-card-main" onClick={() => navigate(`/update/${doc.id}`)}>
-                            <h3>{doc.title}</h3>
-                            <p>{stripJson(doc.content).slice(0, 120) || "Empty document"}</p>
-                        </div>
-                        <button onClick={() => handleDeleteDocs(doc.id)}>Delete</button>
+                    <div className="emptyDocs" style={{ color: "#a0a5b0" }}>
+                        No documents yet. Create one!
                     </div>
-                ))}
+                )}
+                {docs.map((doc, idx) => {
+                    const theme = themes[idx % themes.length];
+                    return (
+                        <div 
+                            key={doc.id} 
+                            className="colored-doc-card"
+                            style={{ backgroundColor: theme.bg, color: theme.text }}
+                        >
+                            {/* Slanted Image mockup at top */}
+                            <div className="colored-doc-card-image">
+                                <img 
+                                    src={getDocImage(doc.title, doc.content)} 
+                                    alt={doc.title} 
+                                    onClick={() => navigate(`/update/${doc.id}`)}
+                                />
+                            </div>
+                            
+                            {/* Card Body */}
+                            <div className="colored-doc-card-body">
+                                <div className="doc-card-main" onClick={() => navigate(`/update/${doc.id}`)}>
+                                    <div className="colored-doc-card-header">
+                                        <svg 
+                                            className="go-icon" 
+                                            viewBox="0 0 24 24" 
+                                            width="20" 
+                                            height="20" 
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            strokeWidth="2.5" 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                            <polyline points="15 3 21 3 21 9"></polyline>
+                                            <line x1="10" y1="14" x2="21" y2="3"></line>
+                                        </svg>
+                                        <h3>{doc.title}</h3>
+                                    </div>
+                                    <p style={{ color: theme.text }}>
+                                        {stripJson(doc.content).slice(0, 140) || "Empty document"}
+                                    </p>
+                                </div>
+                                
+                                {/* Card Footer */}
+                                <div className="colored-doc-card-footer">
+                                    <button 
+                                        className="colored-doc-card-delete"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteDocs(doc.id);
+                                        }}
+                                    >
+                                        Delete
+                                      </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     )
