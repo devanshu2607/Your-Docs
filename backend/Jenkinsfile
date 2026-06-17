@@ -46,15 +46,20 @@ pipeline {
             steps {
                 script {
                     echo "Checking/Starting EC2 instance ${params.AWS_INSTANCE_ID} in region ${params.AWS_REGION}..."
-                    sh """
-                        aws ec2 start-instances --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
-                        aws ec2 wait instance-running --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
-                    """
-                    
-                    def ip = sh(script: "aws ec2 describe-instances --instance-ids '${params.AWS_INSTANCE_ID}' --region '${params.AWS_REGION}' --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
-                    echo "EC2 Instance is running at public IP: ${ip}"
-                    
-                    env.AWS_EC2_HOST = ip
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        sh """
+                            aws ec2 start-instances --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
+                            aws ec2 wait instance-running --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
+                        """
+                        
+                        def ip = sh(script: "aws ec2 describe-instances --instance-ids '${params.AWS_INSTANCE_ID}' --region '${params.AWS_REGION}' --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
+                        echo "EC2 Instance is running at public IP: ${ip}"
+                        
+                        env.AWS_EC2_HOST = ip
+                    }
                 }
             }
         }
