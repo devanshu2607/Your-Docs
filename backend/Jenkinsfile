@@ -46,15 +46,20 @@ pipeline {
             steps {
                 script {
                     echo "Checking/Starting EC2 instance ${params.AWS_INSTANCE_ID} in region ${params.AWS_REGION}..."
-                    sh """
-                        aws ec2 start-instances --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
-                        aws ec2 wait instance-running --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
-                    """
-                    
-                    def ip = sh(script: "aws ec2 describe-instances --instance-ids '${params.AWS_INSTANCE_ID}' --region '${params.AWS_REGION}' --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
-                    echo "EC2 Instance is running at public IP: ${ip}"
-                    
-                    env.AWS_EC2_HOST = ip
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        sh """
+                            aws ec2 start-instances --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
+                            aws ec2 wait instance-running --instance-ids "${params.AWS_INSTANCE_ID}" --region "${params.AWS_REGION}"
+                        """
+                        
+                        def ip = sh(script: "aws ec2 describe-instances --instance-ids '${params.AWS_INSTANCE_ID}' --region '${params.AWS_REGION}' --query 'Reservations[0].Instances[0].PublicIpAddress' --output text", returnStdout: true).trim()
+                        echo "EC2 Instance is running at public IP: ${ip}"
+                        
+                        env.AWS_EC2_HOST = ip
+                    }
                 }
             }
         }
@@ -202,32 +207,42 @@ EOF
                 expression { return params.DEPLOY_AFTER_BUILD }
             }
             steps {
-                sh '''
-                    if [ "${DEPLOY_TARGET}" = "render" ]; then
-                        TARGET_URL="${RENDER_BACKEND_URL}/health"
-                        FAILURE_MSG="Render backend health check failed"
-                    else
-                        TARGET_URL="${BACKEND_HEALTHCHECK_URL}"
-                        FAILURE_MSG="AWS backend health check failed"
-                        if echo "$TARGET_URL" | grep -q "api.example.com"; then
-                            TARGET_URL="http://${AWS_EC2_HOST}:8000/health"
-                        fi
-                    fi
-                    for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
-                        if curl -fsS "$TARGET_URL"; then
-                            exit 0
-                        fi
-                        if [ "${DEPLOY_TARGET}" = "aws" ] && [ "$TARGET_URL" != "http://${AWS_EC2_HOST}:8000/health" ]; then
-                            echo "Primary DNS check failed. Trying fallback direct IP check at http://${AWS_EC2_HOST}:8000/health..."
-                            if curl -fsS "http://${AWS_EC2_HOST}:8000/health"; then
-                                exit 0
-                            fi
-                        fi
-                        sleep 20
-                    done
-                    echo "$FAILURE_MSG"
-                    exit 1
-                '''
+                script {
+                    if (params.DEPLOY_TARGET == 'render') {
+                        sh '''
+                            TARGET_URL="${RENDER_BACKEND_URL}/health"
+                            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+                                if curl -fsS "$TARGET_URL"; then
+                                    exit 0
+                                fi
+                                sleep 20
+                            done
+                            echo "Render backend health check failed"
+                            exit 1
+                        '''
+                    } else {
+                        echo "Verifying backend health internally on EC2 host via SSH..."
+                        withCredentials([file(credentialsId: 'aws-ec2-pem-file', variable: 'AWS_SSH_KEY')]) {
+                            sh '''
+                                chmod 600 "$AWS_SSH_KEY"
+                                for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+                                    if ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "curl -fsS http://localhost:8000/health"; then
+                                        echo "Backend health check passed!"
+                                        exit 0
+                                    fi
+                                    echo "Waiting for services to boot (attempt $i/12)..."
+                                    sleep 15
+                                    if [ $i -eq 5 ]; then
+                                        echo "Debugging container statuses:"
+                                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "cd '${AWS_APP_DIR}' && docker compose -f docker-compose.aws.yml ps"
+                                    fi
+                                done
+                                echo "AWS backend health check failed"
+                                exit 1
+                            '''
+                        }
+                    }
+                }
             }
         }
     }
