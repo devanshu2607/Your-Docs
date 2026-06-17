@@ -103,24 +103,29 @@ export default function Dashboard() {
         <div className="page dashboard-page">
             {/* Navbar */}
             <div className="navbar">
-                <h2>CLAY</h2>
+                <h2 onClick={() => navigate("/")} style={{ cursor: 'pointer' }}>CLAY</h2>
                 <div className="nav-actions">
-                    <input
-                        placeholder="Enter code"
-                        value={joinCode}
-                        onChange={e => setJoinCode(e.target.value)}
-                    />
+                    <span className="nav-link" onClick={() => navigate("/create_docs")}>
+                        Create
+                    </span>
 
-                    <button onClick={() => {
-                        if (!joinCode) return alert("Enter code")
-                        navigate(`/join/${joinCode}`)
-                    }}>
-                        Join Live 🔗
-                    </button>
+                    <div className="nav-join-group">
+                        <input
+                            placeholder="Enter Code"
+                            value={joinCode}
+                            onChange={e => setJoinCode(e.target.value)}
+                        />
+                        <span className="nav-link" onClick={() => {
+                            if (!joinCode) return alert("Enter code")
+                            navigate(`/join/${joinCode}`)
+                        }}>
+                            Join
+                        </span>
+                    </div>
 
-                    <button className="logout-btn" onClick={handleLogout}>
-                        Logout 🚪
-                    </button>
+                    <span className="nav-link logout" onClick={handleLogout}>
+                        Logout
+                    </span>
                 </div>
             </div>
 

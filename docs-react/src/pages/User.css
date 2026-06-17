@@ -1667,45 +1667,82 @@ section {
 .dashboard-page .navbar {
   background-color: #121315 !important;
   border-color: #232529 !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
-  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 32px !important;
+  border-radius: var(--r-xl) !important;
+  margin-bottom: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
 }
 
 .dashboard-page .navbar h2 {
+  font-family: 'Sora', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
   color: #ffffff !important;
+  text-transform: uppercase;
+  margin: 0;
 }
 
-.dashboard-page .navbar button {
-  background-color: #121315;
+.dashboard-page .navbar .nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 28px; /* High spacing matching mockup */
+}
+
+.dashboard-page .navbar .nav-link {
+  font-family: 'Sora', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #a0a5b0;
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+  user-select: none;
+}
+
+.dashboard-page .navbar .nav-link:hover {
   color: #ffffff;
-  border-color: #2e3138;
 }
 
-.dashboard-page .navbar button:hover {
-  background-color: #1d1f24;
-  border-color: #40444f;
+.dashboard-page .navbar .nav-link.logout:hover {
+  color: #e11d48; /* Crimson highlight for logout link */
 }
 
-.dashboard-page .navbar .logout-btn {
-  background-color: #e11d48 !important;
-  color: #ffffff !important;
+/* Join group container inside navbar */
+.dashboard-page .navbar .nav-join-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-right: 1px solid #232529;
+  padding-right: 24px;
+}
+
+.dashboard-page .navbar .nav-join-group input {
+  background-color: transparent !important;
   border: none !important;
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2) !important;
+  border-bottom: 1px solid #2e3138 !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px !important;
+  color: #ffffff !important;
+  max-width: 100px !important;
+  transition: border-bottom-color 0.2s ease !important;
+  box-shadow: none !important;
 }
 
-.dashboard-page .navbar .logout-btn:hover {
-  background-color: #be123c !important;
+.dashboard-page .navbar .nav-join-group input:focus {
+  border-bottom-color: #0055ff !important;
+  background-color: transparent !important;
 }
 
-.dashboard-page .navbar input {
-  background-color: #1d1f24;
-  color: #ffffff;
-  border-color: #2e3138;
-}
-
-.dashboard-page .navbar input:focus {
-  border-color: #0055ff;
-  background-color: #121315;
+.dashboard-page .navbar .nav-join-group input::placeholder {
+  color: #525866;
+  font-weight: 500;
 }
 
 /* ════════════════════════════════════
