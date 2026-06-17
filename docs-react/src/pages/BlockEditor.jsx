@@ -20,11 +20,79 @@ import {
     $getRoot, $createParagraphNode, $createTextNode,
     $getSelection, $isRangeSelection, FORMAT_TEXT_COMMAND,
     KEY_TAB_COMMAND, COMMAND_PRIORITY_EDITOR,
+    ElementNode,
 } from 'lexical'
 import { $setBlocksType }                        from '@lexical/selection'
 import { $createHeadingNode, $createQuoteNode }  from '@lexical/rich-text'
 import { $createCodeNode }                       from '@lexical/code'
 import api from '../Auth/axios'
+
+// ── CalloutNode ────────────────────────────────────────────────────────────────
+export class CalloutNode extends ElementNode {
+    static getType() {
+        return 'callout'
+    }
+
+    static clone(node) {
+        return new CalloutNode(node.__theme || 'mint', node.__key)
+    }
+
+    constructor(theme = 'mint', key) {
+        super(key)
+        this.__theme = theme
+    }
+
+    createDOM(config) {
+        const div = document.createElement('div')
+        div.className = `lex-callout lex-callout-${this.__theme}`
+        return div
+    }
+
+    updateDOM(prevNode, dom) {
+        const prevTheme = prevNode.__theme
+        const nextTheme = this.__theme
+        if (prevTheme !== nextTheme) {
+            dom.className = `lex-callout lex-callout-${nextTheme}`
+        }
+        return false
+    }
+
+    static importDOM() {
+        return {
+            div: (domNode) => {
+                if (domNode.classList.contains('lex-callout')) {
+                    const theme = [...domNode.classList]
+                        .find(c => c.startsWith('lex-callout-'))
+                        ?.replace('lex-callout-', '') || 'mint'
+                    return {
+                        conversion: () => ({ node: new CalloutNode(theme) }),
+                        priority: 1,
+                    }
+                }
+                return null
+            },
+        }
+    }
+
+    exportDOM() {
+        const element = document.createElement('div')
+        element.className = `lex-callout lex-callout-${this.__theme}`
+        return { element }
+    }
+
+    static importJSON(serializedNode) {
+        return new CalloutNode(serializedNode.theme)
+    }
+
+    exportJSON() {
+        return {
+            ...super.exportJSON(),
+            type: 'callout',
+            version: 1,
+            theme: this.__theme,
+        }
+    }
+}
 
 const SAFE_TRANSFORMERS = [
     HEADING, QUOTE, UNORDERED_LIST, ORDERED_LIST, CODE,
@@ -277,6 +345,9 @@ function Toolbar({ readOnly }) {
             <button onMouseDown={e => { e.preventDefault(); block(() => $createHeadingNode('h3')) }}>H3</button>
             <button onMouseDown={e => { e.preventDefault(); block(() => $createQuoteNode()) }}>❝</button>
             <button onMouseDown={e => { e.preventDefault(); block(() => $createCodeNode()) }}>&lt;/&gt;</button>
+            <button onMouseDown={e => { e.preventDefault(); block(() => new CalloutNode('mint')) }} className="tb-callout-mint" title="Mint Block">🟢</button>
+            <button onMouseDown={e => { e.preventDefault(); block(() => new CalloutNode('magenta')) }} className="tb-callout-magenta" title="Pink Block">🔴</button>
+            <button onMouseDown={e => { e.preventDefault(); block(() => new CalloutNode('blue')) }} className="tb-callout-blue" title="Blue Block">🔵</button>
             <button onMouseDown={e => { e.preventDefault(); block(() => $createParagraphNode()) }}>¶</button>
         </div>
     )
@@ -300,7 +371,7 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
         namespace: 'PikoDocs',
         theme,
         editable:  !readOnly,
-        nodes:     [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode, AutoLinkNode],
+        nodes:     [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode, AutoLinkNode, CalloutNode],
         onError:   err => console.error('Lexical:', err),
     }), [readOnly])
 

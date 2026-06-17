@@ -1860,3 +1860,48 @@ section {
   color: #e11d48 !important;
   transform: scale(1.02);
 }
+
+/* ════════════════════════════════════
+   EDITOR CALLOUT BLOCKS
+   ════════════════════════════════════ */
+.lex-callout {
+  margin: 18px 0;
+  padding: 16px 20px;
+  border-radius: var(--r-md);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  border-left: 4px solid currentColor;
+}
+
+.lex-callout-mint {
+  background-color: #f4fcf7; /* Soft teal background */
+  color: #087f5b;            /* Matching dark teal text */
+  border-left-color: #0ca678;
+}
+
+.lex-callout-magenta {
+  background-color: #fff0f6; /* Soft pink background */
+  color: #c2255c;            /* Matching rose text */
+  border-left-color: #e64980;
+}
+
+.lex-callout-blue {
+  background-color: #e7f5ff; /* Soft blue background */
+  color: #1971c2;            /* Matching blue text */
+  border-left-color: #228be6;
+}
+
+/* Toolbar button adjustments for callout blocks */
+.lex-toolbar button.tb-callout-mint:hover {
+  background-color: rgba(12, 166, 120, 0.08) !important;
+}
+
+.lex-toolbar button.tb-callout-magenta:hover {
+  background-color: rgba(230, 73, 128, 0.08) !important;
+}
+
+.lex-toolbar button.tb-callout-blue:hover {
+  background-color: rgba(34, 139, 230, 0.08) !important;
+}
+
