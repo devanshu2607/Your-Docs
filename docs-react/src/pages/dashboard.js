@@ -95,10 +95,6 @@ export default function Dashboard() {
             <div className="navbar">
                 <h2>CLAY</h2>
                 <div className="nav-actions">
-                    <button onClick={() => navigate("/create_docs")}>
-                        + New Docs
-                    </button>
-
                     <input
                         placeholder="Enter code"
                         value={joinCode}
