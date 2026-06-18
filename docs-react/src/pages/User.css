@@ -2163,8 +2163,8 @@ section {
   overflow: hidden !important;
   padding: 24px !important;
   box-sizing: border-box !important;
-  background-color: #ffffff !important; /* White background */
-  color: #121315 !important;            /* Dark text */
+  background-color: #1c1e22 !important; /* Soft dark slate background (lighter than pitch black) */
+  color: #ffffff !important;            /* White text */
 }
 
 .dashboard-page .navbar {
@@ -2244,7 +2244,7 @@ section {
   margin-top: 0 !important;
   margin-bottom: 16px !important;
   flex-shrink: 0;
-  color: #121315 !important; /* Dark text */
+  color: #ffffff !important; /* White text */
 }
 
 .dashboard-grid-wrapper {
@@ -2298,11 +2298,11 @@ section {
   background: transparent;
 }
 .dashboard-grid-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15) !important; /* Light scrollbar thumb */
+  background: #232529 !important; /* Revert to dark theme scrollbar */
   border-radius: 999px;
 }
 .dashboard-grid-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3) !important;
+  background: #2e3138 !important;
 }
 
 /* Responsive adjustments */
