@@ -1618,6 +1618,14 @@ section {
   text-transform: uppercase;
 }
 
+.hero-btn-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: auto; /* Pushes the button to the bottom-right */
+  padding-top: 16px;
+}
+
 .dashboard-hero-content .btn {
   width: fit-content;
   min-height: 44px;
@@ -1630,10 +1638,12 @@ section {
   box-shadow: 0 4px 14px rgba(26, 104, 232, 0.3) !important;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
+  overflow: hidden;
+  position: relative;
 }
 
 .dashboard-hero-content .btn:hover {
@@ -1641,6 +1651,49 @@ section {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(26, 104, 232, 0.4) !important;
 }
+
+.dashboard-hero-content .btn .arrow-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-hero-content .btn .arrow-icon {
+  transition: transform 0.2s ease;
+  display: block;
+}
+
+.dashboard-hero-content .btn:hover .arrow-icon {
+  transform: translateX(4px);
+}
+
+.dashboard-hero-content .btn.animating .arrow-icon {
+  animation: sweepArrow 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes sweepArrow {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  49% {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 
 /* Sub-title for all documents section */
 .dashboard-section-title {

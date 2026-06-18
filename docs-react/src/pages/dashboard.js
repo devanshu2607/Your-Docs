@@ -66,6 +66,8 @@ function stripJson(content) {
 export default function Dashboard() {
     const [docs, setDocs]       = useState([])
     const [joinCode, setJoinCode] = useState("")
+    const [isOpeningLatest, setIsOpeningLatest] = useState(false)
+    const [isCreating, setIsCreating] = useState(false)
     const navigate = useNavigate()
 
     useEffect(() => { fetchDocs() }, [])
@@ -98,6 +100,20 @@ export default function Dashboard() {
 
     // Latest document is the first one in the list (or most recently updated)
     const latestDoc = docs.length > 0 ? docs[0] : null;
+
+    const handleOpenLatest = (id) => {
+        setIsOpeningLatest(true)
+        setTimeout(() => {
+            navigate(`/update/${id}`)
+        }, 400)
+    }
+
+    const handleCreateNew = () => {
+        setIsCreating(true)
+        setTimeout(() => {
+            navigate("/create_docs")
+        }, 400)
+    }
 
     return (
         <div className="page dashboard-page">
@@ -151,12 +167,20 @@ export default function Dashboard() {
                                 <p>
                                     <strong>{latestDoc.title}</strong> — {stripJson(latestDoc.content).slice(0, 160) || "Empty document"}...
                                 </p>
-                                <button 
-                                    className="btn" 
-                                    onClick={() => navigate(`/update/${latestDoc.id}`)}
-                                >
-                                    Open Document 📄
-                                </button>
+                                <div className="hero-btn-wrapper">
+                                    <button 
+                                        className={`btn ${isOpeningLatest ? 'animating' : ''}`} 
+                                        onClick={() => handleOpenLatest(latestDoc.id)}
+                                    >
+                                        Open Document
+                                        <span className="arrow-wrapper">
+                                            <svg className="arrow-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                <polyline points="12 5 19 12 12 19"></polyline>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -177,12 +201,20 @@ export default function Dashboard() {
                                 <p>
                                     Clay Docs is a minimalist, collaborative real-time editor. Start by creating a new document or joining a live session.
                                 </p>
-                                <button 
-                                    className="btn" 
-                                    onClick={() => navigate("/create_docs")}
-                                >
-                                    + Create Document 📄
-                                </button>
+                                <div className="hero-btn-wrapper">
+                                    <button 
+                                        className={`btn ${isCreating ? 'animating' : ''}`} 
+                                        onClick={handleCreateNew}
+                                    >
+                                        Create Document
+                                        <span className="arrow-wrapper">
+                                            <svg className="arrow-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                <polyline points="12 5 19 12 12 19"></polyline>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
