@@ -218,8 +218,8 @@ export default function CreateDocs() {
 
                 {showCode && docId && (
                     <div style={{ margin: "10px 0" }}>
-                        <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
-                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace" }}>{docId}</b>
+                        <p style={{ color: "#3e4450", marginBottom: "4px" }}>Share Code:</p>
+                        <b style={{ color: "#121315", fontSize: "16px", fontFamily: "monospace" }}>{docId}</b>
                     </div>
                 )}
 

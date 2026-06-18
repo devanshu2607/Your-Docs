@@ -193,7 +193,7 @@ export default function JoinDocs() {
                 {error && <p style={{ color: "#e11d48", marginTop: "10px" }}>{error}</p>}
 
                 {!joined ? (
-                    <p style={{ color: "#a0a5b0" }}>Connecting…</p>
+                    <p style={{ color: "#3e4450" }}>Connecting…</p>
                 ) : (
                     <>
                         <p style={{ color: "#10b981", margin: "10px 0", fontWeight: "600" }}>Connected ✅</p>
