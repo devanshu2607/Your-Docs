@@ -1942,3 +1942,214 @@ section {
   background-color: rgba(34, 139, 230, 0.08) !important;
 }
 
+/* ════════════════════════════════════
+   DOCS PAGES (CREATE, EDIT, JOIN) DARK MODE
+   ════════════════════════════════════ */
+.docs-page {
+  background-color: #0c0d0e !important; /* Premium dark background */
+  color: #ffffff !important;
+  min-height: 100vh;
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+/* Navbar overrides for docs page */
+.docs-page .navbar {
+  background-color: #121315 !important;
+  border-color: #232529 !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 32px !important;
+  border-radius: var(--r-xl) !important;
+  margin-bottom: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.docs-page .navbar h2 {
+  font-family: 'Sora', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.docs-page .navbar .nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.docs-page .navbar .nav-link {
+  font-family: 'Sora', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #a0a5b0;
+  cursor: pointer;
+  transition: color 0.2s ease, transform 0.2s ease;
+  user-select: none;
+}
+
+.docs-page .navbar .nav-link:hover {
+  color: #ffffff;
+}
+
+.docs-page .navbar .nav-link.logout:hover {
+  color: #e11d48;
+}
+
+.docs-page .navbar .nav-join-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-right: 1px solid #232529;
+  padding-right: 24px;
+}
+
+.docs-page .navbar .nav-join-group input {
+  background-color: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid #2e3138 !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 13px !important;
+  color: #ffffff !important;
+  max-width: 100px !important;
+  transition: border-bottom-color 0.2s ease !important;
+  box-shadow: none !important;
+}
+
+.docs-page .navbar .nav-join-group input:focus {
+  border-bottom-color: #0055ff !important;
+  background-color: transparent !important;
+}
+
+.docs-page .navbar .nav-join-group input::placeholder {
+  color: #525866;
+  font-weight: 500;
+}
+
+/* Card layout wrapper */
+.docs-page .docs {
+  background-color: #121315 !important;
+  border: 1px solid #232529 !important;
+  border-radius: 28px !important;
+  padding: 32px !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35) !important;
+  margin: 0 auto;
+  max-width: 1000px;
+}
+
+.docs-page .docs h1 {
+  font-family: 'Sora', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffffff !important;
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+/* Input boxes styling */
+.docs-page .inputBox input {
+  background-color: #1d1f24 !important;
+  border: 1px solid #2e3138 !important;
+  border-radius: var(--r-md) !important;
+  color: #ffffff !important;
+  padding: 14px 18px !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 15px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.docs-page .inputBox input:focus {
+  border-color: #0055ff !important;
+  box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.15) !important;
+}
+
+/* Button overrides for dark theme docs pages */
+.docs-page .docs .btn {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-radius: var(--r-md) !important;
+  font-weight: 700 !important;
+  min-height: 48px !important;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1) !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.docs-page .docs .btn:hover {
+  background-color: #f0f0f0 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(255, 255, 255, 0.15) !important;
+}
+
+.docs-page .docs .btn:active {
+  transform: translateY(0) !important;
+  background-color: #e0e0e0 !important;
+}
+
+/* Lexical editor container overrides */
+.docs-page .lex-container {
+  background: #18191b !important;
+  border-color: #2e3138 !important;
+  box-shadow: none !important;
+}
+
+.docs-page .lex-toolbar {
+  background: #1c1d21 !important;
+  border-bottom-color: #2e3138 !important;
+}
+
+.docs-page .lex-toolbar button {
+  background: #121315 !important;
+  border-color: #2e3138 !important;
+  color: #a0a5b0 !important;
+}
+
+.docs-page .lex-toolbar button:hover {
+  background: #232529 !important;
+  color: #ffffff !important;
+  border-color: #2e3138 !important;
+}
+
+.docs-page .lex-divider {
+  background: #2e3138 !important;
+}
+
+.docs-page .lex-content {
+  color: #ffffff !important;
+  caret-color: #ffffff !important;
+}
+
+.docs-page .lex-placeholder {
+  color: #525866 !important;
+}
+
+.docs-page .lex-h1, .docs-page .lex-h2, .docs-page .lex-h3 {
+  color: #ffffff !important;
+}
+
+.docs-page .lex-quote {
+  background: #1d1f24 !important;
+  border-left-color: #525866 !important;
+  color: #a0a5b0 !important;
+}
+
+.docs-page .suggestion-overlay {
+  background: #1d1f24 !important;
+  border-color: #2e3138 !important;
+  color: #a0a5b0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+
