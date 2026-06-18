@@ -99,12 +99,26 @@ export default function Dashboard() {
     }
 
     const [pinnedDocId, setPinnedDocId] = useState(localStorage.getItem("pinnedDocId") || null)
+    const [activeMenuId, setActiveMenuId] = useState(null)
+
+    useEffect(() => {
+        const handleGlobalClick = () => {
+            setActiveMenuId(null)
+        }
+        window.addEventListener("click", handleGlobalClick)
+        return () => window.removeEventListener("click", handleGlobalClick)
+    }, [])
 
     // Find pinned doc first, fallback to latest doc
     const pinnedDoc = docs.find(d => d.id === pinnedDocId);
     const heroDoc = pinnedDoc || (docs.length > 0 ? docs[0] : null);
 
     const handlePinDoc = (id) => {
+        if (!id) {
+            localStorage.removeItem("pinnedDocId");
+            setPinnedDocId(null);
+            return;
+        }
         const currentPinned = localStorage.getItem("pinnedDocId");
         if (currentPinned === id) {
             localStorage.removeItem("pinnedDocId");
@@ -174,6 +188,24 @@ export default function Dashboard() {
                             <div className="dashboard-hero-content">
                                 <div className="hero-badge">
                                     {pinnedDocId === heroDoc.id ? "📌 Pinned Document" : "Latest Document"}
+                                </div>
+                                <div className="hero-selector-bar" style={{ marginTop: '12px', marginBottom: '8px' }}>
+                                    <label htmlFor="hero-doc-select" className="selector-label">Pin a Document</label>
+                                    <select
+                                        id="hero-doc-select"
+                                        value={pinnedDocId || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            handlePinDoc(val);
+                                        }}
+                                    >
+                                        <option value="">-- No document pinned (showing latest) --</option>
+                                        {docs.map(doc => (
+                                            <option key={doc.id} value={doc.id}>
+                                                {doc.title || "Untitled Document"}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <h1>
                                     {heroDoc.title}<span className="cursor"></span>
@@ -288,25 +320,48 @@ export default function Dashboard() {
                                             </div>
                                             
                                             {/* Card Footer */}
-                                            <div className="colored-doc-card-footer">
-                                                <button 
-                                                    className={`colored-doc-card-pin ${pinnedDocId === doc.id ? 'pinned' : ''}`}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handlePinDoc(doc.id);
-                                                    }}
-                                                >
-                                                    {pinnedDocId === doc.id ? "📌 Pinned" : "📍 Pin"}
-                                                </button>
-                                                <button 
-                                                    className="colored-doc-card-delete"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteDocs(doc.id);
-                                                    }}
-                                                >
-                                                    Delete
-                                                </button>
+                                            <div className="colored-doc-card-footer" style={{ justifyContent: 'flex-end', position: 'relative' }}>
+                                                <div className="card-menu-container">
+                                                    <button 
+                                                        className="card-menu-trigger"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveMenuId(activeMenuId === doc.id ? null : doc.id);
+                                                        }}
+                                                        aria-label="Document options"
+                                                        style={{ color: theme.text }}
+                                                    >
+                                                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                            <circle cx="12" cy="5" r="1.5"></circle>
+                                                            <circle cx="12" cy="12" r="1.5"></circle>
+                                                            <circle cx="12" cy="19" r="1.5"></circle>
+                                                        </svg>
+                                                    </button>
+                                                    {activeMenuId === doc.id && (
+                                                        <div className="card-menu-dropdown" onClick={(e) => e.stopPropagation()}>
+                                                            <button 
+                                                                className={`menu-item ${pinnedDocId === doc.id ? 'pinned' : ''}`}
+                                                                onClick={() => {
+                                                                    handlePinDoc(doc.id);
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                            >
+                                                                {pinnedDocId === doc.id ? "📌 Unpin" : "📍 Pin"}
+                                                            </button>
+                                                            <button 
+                                                                className="menu-item delete"
+                                                                onClick={() => {
+                                                                    if (window.confirm("Are you sure you want to delete this document?")) {
+                                                                        handleDeleteDocs(doc.id);
+                                                                    }
+                                                                    setActiveMenuId(null);
+                                                                }}
+                                                            >
+                                                                🗑️ Delete
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
