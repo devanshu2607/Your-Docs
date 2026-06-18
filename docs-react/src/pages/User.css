@@ -1503,10 +1503,10 @@ section {
 .dashboard-hero {
   display: grid;
   grid-template-columns: 45% 55%;
-  background-color: #121315; /* Sleek dark-grey/off-black matching the image */
+  background-color: #2d3139; /* Soft light-medium slate gray */
   border-radius: var(--r-xl);
   overflow: hidden;
-  border: 1px solid #232529;
+  border: 1px solid #3e4450;
   margin-bottom: 32px;
   min-height: 380px;
 }
@@ -1561,7 +1561,7 @@ section {
     linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 30px 30px;
-  background-color: #18191b;
+  background-color: #343943; /* Lighter soft slate gray */
 }
 
 .dashboard-hero-content h1 {
@@ -1646,7 +1646,7 @@ section {
   font-family: 'Sora', sans-serif;
   font-size: 20px;
   font-weight: 800;
-  color: #ffffff !important;
+  color: #121315 !important; /* Dark text */
   margin: 32px 0 20px 0;
   display: flex;
   align-items: center;
@@ -1657,23 +1657,23 @@ section {
    DASHBOARD DARK MODE THEMING
    ════════════════════════════════════ */
 .dashboard-page {
-  background-color: #0c0d0e !important; /* Premium dark background */
-  color: #ffffff !important;
+  background-color: #f5f6f8 !important; /* Premium light gray background */
+  color: #121315 !important;
   min-height: 100vh;
   padding: 30px;
   box-sizing: border-box;
 }
 
 .dashboard-page .navbar {
-  background-color: #121315 !important;
-  border-color: #232529 !important;
+  background-color: #2d3139 !important; /* Soft light-medium slate gray */
+  border-color: #3e4450 !important;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 18px 32px !important;
   border-radius: var(--r-xl) !important;
   margin-bottom: 32px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
 }
 
 .dashboard-page .navbar h2 {
@@ -1946,8 +1946,8 @@ section {
    DOCS PAGES (CREATE, EDIT, JOIN) DARK MODE
    ════════════════════════════════════ */
 .docs-page {
-  background-color: #0c0d0e !important; /* Premium dark background */
-  color: #ffffff !important;
+  background-color: #f5f6f8 !important; /* Premium light gray background */
+  color: #121315 !important;            /* Dark text */
   min-height: 100vh;
   padding: 30px;
   box-sizing: border-box;
@@ -1955,15 +1955,15 @@ section {
 
 /* Navbar overrides for docs page */
 .docs-page .navbar {
-  background-color: #121315 !important;
-  border-color: #232529 !important;
+  background-color: #2d3139 !important; /* Soft light-medium slate gray */
+  border-color: #3e4450 !important;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 18px 32px !important;
   border-radius: var(--r-xl) !important;
   margin-bottom: 32px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
 }
 
 .docs-page .navbar h2 {
@@ -2036,11 +2036,11 @@ section {
 
 /* Card layout wrapper */
 .docs-page .docs {
-  background-color: #121315 !important;
-  border: 1px solid #232529 !important;
+  background-color: #2d3139 !important; /* Soft light-medium slate gray */
+  border: 1px solid #3e4450 !important;
   border-radius: 28px !important;
   padding: 32px !important;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15) !important;
   margin: 0 auto;
   max-width: 1000px;
 }
@@ -2100,30 +2100,30 @@ section {
 
 /* Lexical editor container overrides */
 .docs-page .lex-container {
-  background: #18191b !important;
-  border-color: #2e3138 !important;
+  background: #23272f !important;
+  border-color: #3e4450 !important;
   box-shadow: none !important;
 }
 
 .docs-page .lex-toolbar {
-  background: #1c1d21 !important;
-  border-bottom-color: #2e3138 !important;
+  background: #2d3139 !important;
+  border-bottom-color: #3e4450 !important;
 }
 
 .docs-page .lex-toolbar button {
-  background: #121315 !important;
-  border-color: #2e3138 !important;
+  background: #1c1d21 !important;
+  border-color: #3e4450 !important;
   color: #a0a5b0 !important;
 }
 
 .docs-page .lex-toolbar button:hover {
-  background: #232529 !important;
+  background: #2d3139 !important;
   color: #ffffff !important;
-  border-color: #2e3138 !important;
+  border-color: #3e4450 !important;
 }
 
 .docs-page .lex-divider {
-  background: #2e3138 !important;
+  background: #3e4450 !important;
 }
 
 .docs-page .lex-content {
@@ -2163,8 +2163,8 @@ section {
   overflow: hidden !important;
   padding: 24px !important;
   box-sizing: border-box !important;
-  background-color: #f5f6f8 !important; /* Premium light gray background */
-  color: #121315 !important;            /* Dark text for page layout */
+  background-color: #1c1e22 !important; /* Soft dark slate background (lighter than pitch black) */
+  color: #ffffff !important;            /* White text */
 }
 
 .dashboard-page .navbar {
@@ -2258,7 +2258,7 @@ section {
   margin-top: 0 !important;
   margin-bottom: 16px !important;
   flex-shrink: 0;
-  color: #121315 !important; /* Dark text for section title */
+  color: #ffffff !important; /* White text */
 }
 
 .dashboard-grid-wrapper {
@@ -2312,11 +2312,11 @@ section {
   background: transparent;
 }
 .dashboard-grid-wrapper::-webkit-scrollbar-thumb {
-  background: #232529 !important; /* Revert to dark theme scrollbar */
+  background: rgba(0, 0, 0, 0.15) !important; /* Premium light scrollbar thumb */
   border-radius: 999px;
 }
 .dashboard-grid-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #2e3138 !important;
+  background: rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Responsive adjustments */
