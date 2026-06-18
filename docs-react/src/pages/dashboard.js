@@ -98,8 +98,22 @@ export default function Dashboard() {
         }
     }
 
-    // Latest document is the first one in the list (or most recently updated)
-    const latestDoc = docs.length > 0 ? docs[0] : null;
+    const [pinnedDocId, setPinnedDocId] = useState(localStorage.getItem("pinnedDocId") || null)
+
+    // Find pinned doc first, fallback to latest doc
+    const pinnedDoc = docs.find(d => d.id === pinnedDocId);
+    const heroDoc = pinnedDoc || (docs.length > 0 ? docs[0] : null);
+
+    const handlePinDoc = (id) => {
+        const currentPinned = localStorage.getItem("pinnedDocId");
+        if (currentPinned === id) {
+            localStorage.removeItem("pinnedDocId");
+            setPinnedDocId(null);
+        } else {
+            localStorage.setItem("pinnedDocId", id);
+            setPinnedDocId(id);
+        }
+    }
 
     const handleOpenLatest = (id) => {
         setIsOpeningLatest(true)
@@ -149,28 +163,28 @@ export default function Dashboard() {
             <div className="dashboard-main">
                 {/* Left side: Hero Section */}
                 <div className="dashboard-left">
-                    {latestDoc ? (
+                    {heroDoc ? (
                         <div className="dashboard-hero">
                             <div className="dashboard-hero-graphic">
                                 <img 
-                                    src={getDocImage(latestDoc.title, latestDoc.content)} 
-                                    alt={latestDoc.title} 
+                                    src={getDocImage(heroDoc.title, heroDoc.content)} 
+                                    alt={heroDoc.title} 
                                 />
                             </div>
                             <div className="dashboard-hero-content">
-                                <div className="hero-badge">Latest Document</div>
+                                <div className="hero-badge">
+                                    {pinnedDocId === heroDoc.id ? "📌 Pinned Document" : "Latest Document"}
+                                </div>
                                 <h1>
-                                    Hi there!<br />
-                                    Here is your latest<br />
-                                    document<span className="cursor"></span>
+                                    {heroDoc.title}<span className="cursor"></span>
                                 </h1>
                                 <p>
-                                    <strong>{latestDoc.title}</strong> — {stripJson(latestDoc.content).slice(0, 160) || "Empty document"}...
+                                    {stripJson(heroDoc.content).slice(0, 180) || "Empty document"}...
                                 </p>
                                 <div className="hero-btn-wrapper">
                                     <button 
                                         className={`btn ${isOpeningLatest ? 'animating' : ''}`} 
-                                        onClick={() => handleOpenLatest(latestDoc.id)}
+                                        onClick={() => handleOpenLatest(heroDoc.id)}
                                     >
                                         Open Document
                                         <span className="arrow-wrapper">
@@ -275,6 +289,15 @@ export default function Dashboard() {
                                             
                                             {/* Card Footer */}
                                             <div className="colored-doc-card-footer">
+                                                <button 
+                                                    className={`colored-doc-card-pin ${pinnedDocId === doc.id ? 'pinned' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePinDoc(doc.id);
+                                                    }}
+                                                >
+                                                    {pinnedDocId === doc.id ? "📌 Pinned" : "📍 Pin"}
+                                                </button>
                                                 <button 
                                                     className="colored-doc-card-delete"
                                                     onClick={(e) => {

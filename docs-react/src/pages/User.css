@@ -1923,9 +1923,36 @@ section {
 /* Footer layout */
 .colored-doc-card-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 16px;
   width: 100%;
+}
+
+/* Translucent pin button overlay */
+.colored-doc-card-pin {
+  background-color: rgba(0, 0, 0, 0.07);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: inherit;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.colored-doc-card-pin:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+.colored-doc-card-pin.pinned {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-color: rgba(0, 0, 0, 0.3);
 }
 
 /* Translucent delete button overlay */
