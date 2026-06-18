@@ -1521,7 +1521,7 @@ section {
 /* Duotone image cover */
 .dashboard-hero-graphic {
   position: relative;
-  background-color: #0055ff; /* Vibrant blue tint matching the mockup */
+  background-color: #F7F7F2; /* Sand off-white background */
   width: 100%;
   height: 100%;
   min-height: 250px;
@@ -1657,7 +1657,7 @@ section {
    DASHBOARD DARK MODE THEMING
    ════════════════════════════════════ */
 .dashboard-page {
-  background-color: #f5f6f8 !important; /* Premium light gray background */
+  background-color: #ffffff !important; /* Pure white background */
   color: #121315 !important;
   min-height: 100vh;
   padding: 30px;
@@ -1946,7 +1946,7 @@ section {
    DOCS PAGES (CREATE, EDIT, JOIN) DARK MODE
    ════════════════════════════════════ */
 .docs-page {
-  background-color: #f5f6f8 !important; /* Premium light gray background */
+  background-color: #ffffff !important; /* Pure white background */
   color: #121315 !important;            /* Dark text */
   min-height: 100vh;
   padding: 30px;
@@ -2163,7 +2163,7 @@ section {
   overflow: hidden !important;
   padding: 24px !important;
   box-sizing: border-box !important;
-  background-color: #f5f6f8 !important; /* Premium light gray background */
+  background-color: #ffffff !important; /* Pure white background */
   color: #121315 !important;            /* Dark text */
 }
 
