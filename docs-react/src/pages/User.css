@@ -2152,4 +2152,184 @@ section {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
 }
 
+/* ════════════════════════════════════
+   VIEWPORT-HEIGHT DASHBOARD (NO SCROLL)
+   ════════════════════════════════════ */
+.dashboard-page {
+  height: 100vh !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+.dashboard-page .navbar {
+  flex-shrink: 0;
+  margin-bottom: 24px !important;
+}
+
+.dashboard-main {
+  display: flex;
+  gap: 28px;
+  flex: 1;
+  min-height: 0; /* Ensures inner scroll works */
+  height: calc(100% - 96px); /* Account for navbar + margins */
+  overflow: hidden;
+}
+
+.dashboard-left {
+  width: 38%;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-left .dashboard-hero {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr !important; /* Stack image and content vertically */
+  grid-template-rows: 38% 62% !important;
+  min-height: 0 !important;
+  height: 100%;
+  margin-bottom: 0 !important;
+}
+
+.dashboard-left .dashboard-hero-graphic {
+  min-height: 0 !important;
+  height: 100%;
+}
+
+.dashboard-left .dashboard-hero-content {
+  padding: 24px 28px !important; /* Slightly tighter padding for vertical layout */
+  justify-content: flex-start !important;
+}
+
+.dashboard-left .dashboard-hero-content h1 {
+  font-size: clamp(20px, 2.5vw, 26px) !important;
+  margin-top: 10px !important;
+  margin-bottom: 10px !important;
+  line-height: 1.2 !important;
+}
+
+.dashboard-left .dashboard-hero-content p {
+  font-size: 13px !important;
+  margin-bottom: 16px !important;
+}
+
+.dashboard-left .dashboard-hero-content .hero-badge {
+  padding: 4px 10px !important;
+  font-size: 10px !important;
+}
+
+.dashboard-left .dashboard-hero-content .btn {
+  min-height: 38px !important;
+  font-size: 12.5px !important;
+  padding: 0 16px !important;
+}
+
+.dashboard-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+
+.dashboard-right .dashboard-section-title {
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
+  flex-shrink: 0;
+}
+
+.dashboard-grid-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 24px;
+}
+
+/* Make grid fit the container width */
+.dashboard-grid-wrapper .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 24px !important;
+  margin-top: 0 !important;
+  padding-bottom: 10px !important;
+}
+
+.dashboard-grid-wrapper .colored-doc-card {
+  min-height: 380px !important; /* Shorter card to prevent unnecessary height */
+}
+
+.dashboard-grid-wrapper .colored-doc-card-image {
+  height: 140px !important;
+}
+
+.dashboard-grid-wrapper .colored-doc-card-body {
+  padding: 18px 20px !important;
+}
+
+.dashboard-grid-wrapper .colored-doc-card-body h3 {
+  font-size: 17px !important;
+}
+
+.dashboard-grid-wrapper .colored-doc-card-body p {
+  font-size: 12.5px !important;
+  margin-top: 6px !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+}
+
+.dashboard-grid-wrapper .colored-doc-card-footer {
+  margin-top: 8px !important;
+}
+
+/* Custom scrollbar for right side list */
+.dashboard-grid-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+.dashboard-grid-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dashboard-grid-wrapper::-webkit-scrollbar-thumb {
+  background: #232529;
+  border-radius: 999px;
+}
+.dashboard-grid-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #2e3138;
+}
+
+/* Responsive adjustments */
+@media (max-width: 950px) {
+  .dashboard-main {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .dashboard-left {
+    width: 100% !important;
+    height: auto !important;
+    flex-shrink: 0 !important;
+  }
+  .dashboard-left .dashboard-hero {
+    grid-template-columns: 45% 55% !important;
+    grid-template-rows: 1fr !important;
+    min-height: 280px !important;
+  }
+  .dashboard-right {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .dashboard-grid-wrapper {
+    overflow: visible !important;
+  }
+  .dashboard-page {
+    height: auto !important;
+    overflow: auto !important;
+  }
+}
+
+
 

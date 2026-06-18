@@ -129,128 +129,137 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Split Hero Section (Hi there! Layout) */}
-            {latestDoc ? (
-                <div className="dashboard-hero">
-                    <div className="dashboard-hero-graphic">
-                        <img 
-                            src={getDocImage(latestDoc.title, latestDoc.content)} 
-                            alt={latestDoc.title} 
-                        />
-                    </div>
-                    <div className="dashboard-hero-content">
-                        <div className="hero-badge">Latest Document</div>
-                        <h1>
-                            Hi there!<br />
-                            Here is your latest<br />
-                            document<span className="cursor"></span>
-                        </h1>
-                        <p>
-                            <strong>{latestDoc.title}</strong> — {stripJson(latestDoc.content).slice(0, 160) || "Empty document"}...
-                        </p>
-                        <button 
-                            className="btn" 
-                            onClick={() => navigate(`/update/${latestDoc.id}`)}
-                        >
-                            Open Document 📄
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="dashboard-hero">
-                    <div className="dashboard-hero-graphic">
-                        <img 
-                            src="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80" 
-                            alt="Workspace" 
-                        />
-                    </div>
-                    <div className="dashboard-hero-content">
-                        <div className="hero-badge">Get Started</div>
-                        <h1>
-                            Hi there!<br />
-                            Create your first<br />
-                            document<span className="cursor"></span>
-                        </h1>
-                        <p>
-                            Clay Docs is a minimalist, collaborative real-time editor. Start by creating a new document or joining a live session.
-                        </p>
-                        <button 
-                            className="btn" 
-                            onClick={() => navigate("/create_docs")}
-                        >
-                            + Create Document 📄
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* All Documents Section */}
-            <h3 className="dashboard-section-title">Your Workspace</h3>
-            <div className="dashboard-grid">
-                {docs.length === 0 && (
-                    <div className="emptyDocs" style={{ color: "#a0a5b0" }}>
-                        No documents yet. Create one!
-                    </div>
-                )}
-                {docs.map((doc, idx) => {
-                    const theme = themes[idx % themes.length];
-                    return (
-                        <div 
-                            key={doc.id} 
-                            className="colored-doc-card"
-                            style={{ backgroundColor: theme.bg, color: theme.text }}
-                        >
-                            {/* Slanted Image mockup at top */}
-                            <div className="colored-doc-card-image">
+            {/* Split layout for single-page viewport */}
+            <div className="dashboard-main">
+                {/* Left side: Hero Section */}
+                <div className="dashboard-left">
+                    {latestDoc ? (
+                        <div className="dashboard-hero">
+                            <div className="dashboard-hero-graphic">
                                 <img 
-                                    src={getDocImage(doc.title, doc.content)} 
-                                    alt={doc.title} 
-                                    onClick={() => navigate(`/update/${doc.id}`)}
+                                    src={getDocImage(latestDoc.title, latestDoc.content)} 
+                                    alt={latestDoc.title} 
                                 />
                             </div>
-                            
-                            {/* Card Body */}
-                            <div className="colored-doc-card-body">
-                                <div className="doc-card-main" onClick={() => navigate(`/update/${doc.id}`)}>
-                                    <div className="colored-doc-card-header">
-                                        <svg 
-                                            className="go-icon" 
-                                            viewBox="0 0 24 24" 
-                                            width="20" 
-                                            height="20" 
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            strokeWidth="2.5" 
-                                            strokeLinecap="round" 
-                                            strokeLinejoin="round"
-                                        >
-                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                            <polyline points="15 3 21 3 21 9"></polyline>
-                                            <line x1="10" y1="14" x2="21" y2="3"></line>
-                                        </svg>
-                                        <h3>{doc.title}</h3>
-                                    </div>
-                                    <p style={{ color: theme.text }}>
-                                        {stripJson(doc.content).slice(0, 140) || "Empty document"}
-                                    </p>
-                                </div>
-                                
-                                {/* Card Footer */}
-                                <div className="colored-doc-card-footer">
-                                    <button 
-                                        className="colored-doc-card-delete"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteDocs(doc.id);
-                                        }}
-                                    >
-                                        Delete
-                                      </button>
-                                </div>
+                            <div className="dashboard-hero-content">
+                                <div className="hero-badge">Latest Document</div>
+                                <h1>
+                                    Hi there!<br />
+                                    Here is your latest<br />
+                                    document<span className="cursor"></span>
+                                </h1>
+                                <p>
+                                    <strong>{latestDoc.title}</strong> — {stripJson(latestDoc.content).slice(0, 160) || "Empty document"}...
+                                </p>
+                                <button 
+                                    className="btn" 
+                                    onClick={() => navigate(`/update/${latestDoc.id}`)}
+                                >
+                                    Open Document 📄
+                                </button>
                             </div>
                         </div>
-                    );
-                })}
+                    ) : (
+                        <div className="dashboard-hero">
+                            <div className="dashboard-hero-graphic">
+                                <img 
+                                    src="https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=800&q=80" 
+                                    alt="Workspace" 
+                                />
+                            </div>
+                            <div className="dashboard-hero-content">
+                                <div className="hero-badge">Get Started</div>
+                                <h1>
+                                    Hi there!<br />
+                                    Create your first<br />
+                                    document<span className="cursor"></span>
+                                </h1>
+                                <p>
+                                    Clay Docs is a minimalist, collaborative real-time editor. Start by creating a new document or joining a live session.
+                                </p>
+                                <button 
+                                    className="btn" 
+                                    onClick={() => navigate("/create_docs")}
+                                >
+                                    + Create Document 📄
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right side: Workspace list */}
+                <div className="dashboard-right">
+                    <h3 className="dashboard-section-title">Your Workspace</h3>
+                    <div className="dashboard-grid-wrapper">
+                        <div className="dashboard-grid">
+                            {docs.length === 0 && (
+                                <div className="emptyDocs" style={{ color: "#a0a5b0" }}>
+                                    No documents yet. Create one!
+                                </div>
+                            )}
+                            {docs.map((doc, idx) => {
+                                const theme = themes[idx % themes.length];
+                                return (
+                                    <div 
+                                        key={doc.id} 
+                                        className="colored-doc-card"
+                                        style={{ backgroundColor: theme.bg, color: theme.text }}
+                                    >
+                                        {/* Slanted Image mockup at top */}
+                                        <div className="colored-doc-card-image">
+                                            <img 
+                                                src={getDocImage(doc.title, doc.content)} 
+                                                alt={doc.title} 
+                                                onClick={() => navigate(`/update/${doc.id}`)}
+                                            />
+                                        </div>
+                                        
+                                        {/* Card Body */}
+                                        <div className="colored-doc-card-body">
+                                            <div className="doc-card-main" onClick={() => navigate(`/update/${doc.id}`)}>
+                                                <div className="colored-doc-card-header">
+                                                    <svg 
+                                                        className="go-icon" 
+                                                        viewBox="0 0 24 24" 
+                                                        width="20" 
+                                                        height="20" 
+                                                        fill="none" 
+                                                        stroke="currentColor" 
+                                                        strokeWidth="2.5" 
+                                                        strokeLinecap="round" 
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                        <polyline points="15 3 21 3 21 9"></polyline>
+                                                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                                                    </svg>
+                                                    <h3>{doc.title}</h3>
+                                                </div>
+                                                <p style={{ color: theme.text }}>
+                                                    {stripJson(doc.content).slice(0, 140) || "Empty document"}
+                                                </p>
+                                            </div>
+                                            
+                                            {/* Card Footer */}
+                                            <div className="colored-doc-card-footer">
+                                                <button 
+                                                    className="colored-doc-card-delete"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteDocs(doc.id);
+                                                    }}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     )
