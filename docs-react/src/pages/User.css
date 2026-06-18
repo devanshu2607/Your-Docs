@@ -2170,6 +2170,8 @@ section {
 .dashboard-page .navbar {
   flex-shrink: 0;
   margin-bottom: 24px !important;
+  background-color: #2d3139 !important; /* Lighter dark slate navbar */
+  border-color: #3e4450 !important;
 }
 
 .dashboard-main {
@@ -2197,6 +2199,8 @@ section {
   min-height: 0 !important;
   height: 100%;
   margin-bottom: 0 !important;
+  background-color: #2d3139 !important; /* Lighter dark slate card */
+  border-color: #3e4450 !important;
 }
 
 .dashboard-left .dashboard-hero-graphic {
@@ -2207,6 +2211,14 @@ section {
 .dashboard-left .dashboard-hero-content {
   padding: 24px 28px !important; /* Slightly tighter padding for vertical layout */
   justify-content: flex-start !important;
+  background-color: #343943 !important; /* Medium-dark content background */
+  color: #ffffff !important;            /* White text inside hero box */
+}
+
+.dashboard-left .dashboard-hero-content h1,
+.dashboard-left .dashboard-hero-content p,
+.dashboard-left .dashboard-hero-content strong {
+  color: #ffffff !important;
 }
 
 .dashboard-left .dashboard-hero-content h1 {
@@ -2230,6 +2242,8 @@ section {
   min-height: 38px !important;
   font-size: 12.5px !important;
   padding: 0 16px !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
 .dashboard-right {
@@ -2244,7 +2258,7 @@ section {
   margin-top: 0 !important;
   margin-bottom: 16px !important;
   flex-shrink: 0;
-  color: #121315 !important; /* Dark text */
+  color: #ffffff !important; /* White text */
 }
 
 .dashboard-grid-wrapper {
