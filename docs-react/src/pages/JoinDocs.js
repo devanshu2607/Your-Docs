@@ -13,6 +13,7 @@ export default function JoinDocs() {
     const [joined, setJoined] = useState(false)
     const [blocks, setBlocks] = useState([])
     const [error, setError]   = useState("")
+    const [joinCode, setJoinCode] = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -21,6 +22,14 @@ export default function JoinDocs() {
     const reconnectAttemptsRef = useRef(0)
     const manualCloseRef = useRef(false)
     const loadedRef      = useRef(false)    // ← in parent so survives re-renders
+
+    const handleLogout = async () => {
+        try { await api.post('/logout') } catch { /* ignore */ }
+        finally {
+            localStorage.removeItem("token")
+            navigate("/login")
+        }
+    }
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
@@ -39,7 +48,7 @@ export default function JoinDocs() {
             wsRef.current = null
         }
     }, [])
-
+// ... [rest unchanged up to return]
     useEffect(() => {
         if (!docId) return
 
@@ -150,17 +159,44 @@ export default function JoinDocs() {
     const handleBlocksChange = useCallback((updated) => setBlocks(updated), [])
 
     return (
-        <section>
+        <div className="page docs-page">
+            <div className="navbar">
+                <h2 onClick={() => navigate("/dashboard")} style={{ cursor: 'pointer' }}>CLAY</h2>
+                <div className="nav-actions">
+                    <span className="nav-link" onClick={() => navigate("/create_docs")}>
+                        Create
+                    </span>
+
+                    <div className="nav-join-group">
+                        <input
+                            placeholder="Enter Code"
+                            value={joinCode}
+                            onChange={e => setJoinCode(e.target.value)}
+                        />
+                        <span className="nav-link" onClick={() => {
+                            if (!joinCode) return alert("Enter code")
+                            navigate(`/join/${joinCode}`)
+                        }}>
+                            Join
+                        </span>
+                    </div>
+
+                    <span className="nav-link logout" onClick={handleLogout}>
+                        Logout
+                    </span>
+                </div>
+            </div>
+
             <div className="docs">
                 <h1>Live Doc</h1>
 
-                {error && <p style={{ color: "red" }}>{error}</p>}
+                {error && <p style={{ color: "#e11d48", marginTop: "10px" }}>{error}</p>}
 
                 {!joined ? (
-                    <p style={{ color: "#1f2937" }}>Connecting…</p>
+                    <p style={{ color: "#a0a5b0" }}>Connecting…</p>
                 ) : (
                     <>
-                        <p style={{ color: "green" }}>Connected ✅</p>
+                        <p style={{ color: "#10b981", margin: "10px 0", fontWeight: "600" }}>Connected ✅</p>
 
                         <BlockEditor
                             blocks={blocks}
@@ -171,13 +207,13 @@ export default function JoinDocs() {
                         />
 
                         <div className="btn"
-                            style={{ background: "linear-gradient(135deg,#ff6b6b,#ee0979)", marginTop: "8px" }}
+                            style={{ background: "linear-gradient(135deg,#ff6b6b,#ee0979)", color: "#ffffff", marginTop: "16px" }}
                             onClick={handleLeave}>
                             🚪 Leave Session
                         </div>
                     </>
                 )}
             </div>
-        </section>
+        </div>
     )
 }

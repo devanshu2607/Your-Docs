@@ -18,6 +18,7 @@ export default function UpdateDocs() {
     const [error, setError]         = useState("")
     const [saved, setSaved]         = useState(false)
     const [loading, setLoading]     = useState(false)
+    const [joinCode, setJoinCode]   = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -26,6 +27,14 @@ export default function UpdateDocs() {
     const reconnectAttemptsRef = useRef(0)
     const manualCloseRef = useRef(false)
     const loadedRef      = useRef(false)    // ← in parent so survives re-renders
+
+    const handleLogout = async () => {
+        try { await api.post('/logout') } catch { /* ignore */ }
+        finally {
+            localStorage.removeItem("token")
+            navigate("/login")
+        }
+    }
 
     useEffect(() => { blocksRef.current = blocks }, [blocks])
 
@@ -166,7 +175,34 @@ export default function UpdateDocs() {
     const handleBlocksChange = useCallback((updated) => setBlocks(updated), [])
 
     return (
-        <section>
+        <div className="page docs-page">
+            <div className="navbar">
+                <h2 onClick={() => navigate("/dashboard")} style={{ cursor: 'pointer' }}>CLAY</h2>
+                <div className="nav-actions">
+                    <span className="nav-link" onClick={() => navigate("/create_docs")}>
+                        Create
+                    </span>
+
+                    <div className="nav-join-group">
+                        <input
+                            placeholder="Enter Code"
+                            value={joinCode}
+                            onChange={e => setJoinCode(e.target.value)}
+                        />
+                        <span className="nav-link" onClick={() => {
+                            if (!joinCode) return alert("Enter code")
+                            navigate(`/join/${joinCode}`)
+                        }}>
+                            Join
+                        </span>
+                    </div>
+
+                    <span className="nav-link logout" onClick={handleLogout}>
+                        Logout
+                    </span>
+                </div>
+            </div>
+
             <div className="docs">
                 <h1>Edit Doc</h1>
 
@@ -176,20 +212,20 @@ export default function UpdateDocs() {
                 </div>
 
                 {showCode && (
-                    <div>
-                        <p style={{ color: "#1f2937" }}>Share Code:</p>
-                        <b style={{ color: "#1f2937" }}>{id}</b>
+                    <div style={{ margin: "10px 0" }}>
+                        <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
+                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace" }}>{id}</b>
                     </div>
                 )}
 
                 {!connected ? (
-                    <div className="btn" onClick={handleStartSession}>🔴 Start Live Session</div>
+                    <div className="btn" onClick={handleStartSession} style={{ margin: "10px 0" }}>▶ Start Live Session</div>
                 ) : (
-                    <div style={{ display: "flex", gap: "10px" }}>
-                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#a8edea,#fed6e3)" }}>
+                    <div style={{ display: "flex", gap: "10px", margin: "10px 0" }}>
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#059669,#10b981)", color: "#ffffff" }}>
                             Connected ✅
                         </div>
-                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#ff6b6b,#ee0979)" }}
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#ff6b6b,#ee0979)", color: "#ffffff" }}
                             onClick={handleEndSession}>🔴 End Session
                         </div>
                     </div>
@@ -203,16 +239,16 @@ export default function UpdateDocs() {
                     onBlocksChange={handleBlocksChange}
                 />
 
-                <div className="btn" onClick={handleUpdate} style={{ opacity: loading ? 0.6 : 1 }}>
+                <div className="btn" onClick={handleUpdate} style={{ opacity: loading ? 0.6 : 1, marginTop: "16px" }}>
                     {loading ? "Saving…" : "💾 Save Changes"}
                 </div>
 
-                {saved && <p style={{ color: "green" }}>Saved! Redirecting…</p>}
-                {error && <p style={{ color: "red" }}>{error}</p>}
+                {saved && <p style={{ color: "#10b981", marginTop: "10px" }}>Saved! Redirecting…</p>}
+                {error && <p style={{ color: "#e11d48", marginTop: "10px" }}>{error}</p>}
 
                 {role === "owner" && (
                     <div className="btn"
-                        style={{ background: "linear-gradient(135deg,#ff6b6b,#ee0979)", marginTop: "4px" }}
+                        style={{ background: "linear-gradient(135deg,#e11d48,#be123c)", color: "#ffffff", marginTop: "12px" }}
                         onClick={async () => {
                             if (!window.confirm("Delete this doc?")) return
                             try {
@@ -226,6 +262,6 @@ export default function UpdateDocs() {
                     </div>
                 )}
             </div>
-        </section>
+        </div>
     )
 }

@@ -13,6 +13,7 @@ export default function CreateDocs() {
     const [showCode, setShowCode]   = useState(false)
     const [blocks, setBlocks]       = useState([])
     const [title, setTitle]         = useState("")
+    const [joinCode, setJoinCode]   = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -24,6 +25,14 @@ export default function CreateDocs() {
     const connectingRef  = useRef(false)    // ← guard against double-click connect
     const navigate       = useNavigate()
 
+    const handleLogout = async () => {
+        try { await api.post('/logout') } catch { /* ignore */ }
+        finally {
+            localStorage.removeItem("token")
+            navigate("/login")
+        }
+    }
+// ... [rest unchanged up to return]
     useEffect(() => { blocksRef.current = blocks }, [blocks])
     useEffect(() => () => {
         manualCloseRef.current = true
@@ -167,7 +176,34 @@ export default function CreateDocs() {
     const handleBlocksChange = useCallback((updated) => setBlocks(updated), [])
 
     return (
-        <section>
+        <div className="page docs-page">
+            <div className="navbar">
+                <h2 onClick={() => navigate("/dashboard")} style={{ cursor: 'pointer' }}>CLAY</h2>
+                <div className="nav-actions">
+                    <span className="nav-link" onClick={() => navigate("/create_docs")}>
+                        Create
+                    </span>
+
+                    <div className="nav-join-group">
+                        <input
+                            placeholder="Enter Code"
+                            value={joinCode}
+                            onChange={e => setJoinCode(e.target.value)}
+                        />
+                        <span className="nav-link" onClick={() => {
+                            if (!joinCode) return alert("Enter code")
+                            navigate(`/join/${joinCode}`)
+                        }}>
+                            Join
+                        </span>
+                    </div>
+
+                    <span className="nav-link logout" onClick={handleLogout}>
+                        Logout
+                    </span>
+                </div>
+            </div>
+
             <div className="docs">
                 <h1>Create Docs</h1>
 
@@ -181,9 +217,9 @@ export default function CreateDocs() {
                 )}
 
                 {showCode && docId && (
-                    <div>
-                        <p style={{ color: "#1f2937" }}>Share Code:</p>
-                        <b style={{ color: "#1f2937" }}>{docId}</b>
+                    <div style={{ margin: "10px 0" }}>
+                        <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
+                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace" }}>{docId}</b>
                     </div>
                 )}
 
@@ -192,11 +228,11 @@ export default function CreateDocs() {
                 )}
 
                 {connected && (
-                    <div style={{ display: "flex", gap: "10px" }}>
-                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#a8edea,#fed6e3)" }}>
+                    <div style={{ display: "flex", gap: "10px", margin: "10px 0" }}>
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#059669,#10b981)", color: "#ffffff" }}>
                             Connected ✅
                         </div>
-                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#ff6b6b,#ee0979)" }}
+                        <div className="btn" style={{ flex: 1, background: "linear-gradient(135deg,#ff6b6b,#ee0979)", color: "#ffffff" }}
                             onClick={handleEndSession}>🔴 End Session
                         </div>
                     </div>
@@ -213,11 +249,11 @@ export default function CreateDocs() {
                 )}
 
                 {docId && (
-                    <div className="btn" onClick={handleSave}>💾 Save Doc</div>
+                    <div className="btn" onClick={handleSave} style={{ marginTop: "16px" }}>💾 Save Doc</div>
                 )}
 
-                {error && <p style={{ color: "red" }}>{error}</p>}
+                {error && <p style={{ color: "#e11d48", marginTop: "10px" }}>{error}</p>}
             </div>
-        </section>
+        </div>
     )
 }
