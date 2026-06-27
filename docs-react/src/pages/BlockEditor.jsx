@@ -413,12 +413,14 @@ function Toolbar({ readOnly }) {
                 const endSel = $createRangeSelection()
                 endSel.anchor.set(end.key, end.offset, end.type)
                 endSel.focus.set(end.key, end.offset, end.type)
+                $setSelection(endSel)
                 endSel.insertParagraph()
 
                 // 2. Split at the start point
                 const startSel = $createRangeSelection()
                 startSel.anchor.set(start.key, start.offset, start.type)
                 startSel.focus.set(start.key, start.offset, start.type)
+                $setSelection(startSel)
                 startSel.insertParagraph()
 
                 // 3. Format the split middle block
