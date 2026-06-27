@@ -97,6 +97,8 @@ services:
       dockerfile: ./microservices/websocket-service/Dockerfile
     container_name: websocket_service
     restart: unless-stopped
+    ports:
+      - "8003:8000"
     expose:
       - "8000"
     env_file:

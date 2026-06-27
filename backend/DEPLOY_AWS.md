@@ -102,7 +102,8 @@ sudo systemctl enable docker
 ## What is public vs internal
 
 - `gateway-service` is the only public-facing service
-- `auth-service`, `docs-service`, `websocket-service`, `prediction-service`, and `postgres` stay private inside Docker networking
+- `auth-service`, `docs-service`, and `prediction-service` stay private inside Docker networking
+- `websocket-service` is exposed on host port `8003` so Nginx can proxy browser WebSocket traffic to it directly
 
 ## Next step after containers work
 
@@ -131,6 +132,7 @@ sudo systemctl reload nginx
 The important WebSocket settings are inside `location /ws/`:
 
 ```nginx
+proxy_pass http://127.0.0.1:8003;
 proxy_http_version 1.1;
 proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection "upgrade";

@@ -1,12 +1,9 @@
-import asyncio
 import os
 import json
 from typing import Optional
 
 import httpx  # type: ignore[import]
-import websockets
-from websockets.exceptions import ConnectionClosed, InvalidStatusCode
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
@@ -52,7 +49,6 @@ def service_url(prefix: str, default_url: str, scheme: str) -> str:
 
 AUTH_SERVICE_URL = service_url("AUTH_SERVICE", "http://127.0.0.1:8001", "http")
 DOCS_SERVICE_URL = service_url("DOCS_SERVICE", "http://127.0.0.1:8002", "http")
-WS_SERVICE_URL = service_url("WS_SERVICE", "ws://127.0.0.1:8003", "ws")
 PREDICTION_SERVICE_URL = service_url("PREDICTION_SERVICE", "http://127.0.0.1:8004", "http")
 
 
@@ -233,55 +229,3 @@ async def predict_status(request: Request):
         PREDICTION_SERVICE_URL,
         "/predict/status",
     )
-
-
-@app.websocket("/ws/{doc_id}")
-async def websocket_proxy(websocket: WebSocket, doc_id: str, token: str):
-    await websocket.accept()
-    downstream_url = f"{WS_SERVICE_URL}/ws/{doc_id}?token={token}"
-    downstream = None
-
-    try:
-        downstream = await websockets.connect(
-            downstream_url,
-            open_timeout=10,
-            close_timeout=5,
-            ping_interval=None,
-        )
-
-        async def client_to_service():
-            while True:
-                message = await websocket.receive_text()
-                await downstream.send(message)
-
-        async def service_to_client():
-            async for message in downstream:
-                await websocket.send_text(message)
-
-        tasks = [
-            asyncio.create_task(client_to_service()),
-            asyncio.create_task(service_to_client()),
-        ]
-
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-        for task in pending:
-            task.cancel()
-        for task in done:
-            exc = task.exception()
-            if exc:
-                raise exc
-    except WebSocketDisconnect:
-        pass
-    except (ConnectionClosed, InvalidStatusCode) as exc:
-        await websocket.close(code=1011, reason=f"Upstream websocket closed: {exc}")
-    except Exception as exc:
-        try:
-            await websocket.close(code=1011, reason="Gateway could not reach websocket service")
-        except Exception:
-            pass
-    finally:
-        if downstream is not None:
-            try:
-                await downstream.close()
-            except Exception:
-                pass
