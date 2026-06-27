@@ -5,6 +5,7 @@ from typing import Optional
 
 import httpx  # type: ignore[import]
 import websockets
+from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -241,7 +242,12 @@ async def websocket_proxy(websocket: WebSocket, doc_id: str, token: str):
     downstream = None
 
     try:
-        downstream = await websockets.connect(downstream_url)
+        downstream = await websockets.connect(
+            downstream_url,
+            open_timeout=10,
+            close_timeout=5,
+            ping_interval=None,
+        )
 
         async def client_to_service():
             while True:
@@ -266,14 +272,13 @@ async def websocket_proxy(websocket: WebSocket, doc_id: str, token: str):
                 raise exc
     except WebSocketDisconnect:
         pass
+    except (ConnectionClosed, InvalidStatusCode) as exc:
+        await websocket.close(code=1011, reason=f"Upstream websocket closed: {exc}")
     except Exception as exc:
-        await websocket.send_json({
-            "type": "ERROR",
-            "detail": "websocket-service is unavailable",
-            "target": downstream_url,
-            "error": str(exc),
-        })
-        await websocket.close(code=1011, reason="Gateway could not reach websocket service")
+        try:
+            await websocket.close(code=1011, reason="Gateway could not reach websocket service")
+        except Exception:
+            pass
     finally:
         if downstream is not None:
             try:
