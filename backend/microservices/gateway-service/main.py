@@ -238,33 +238,34 @@ async def predict_status(request: Request):
 async def websocket_proxy(websocket: WebSocket, doc_id: str, token: str):
     await websocket.accept()
     downstream_url = f"{WS_SERVICE_URL}/ws/{doc_id}?token={token}"
+    downstream = None
 
     try:
-        async with websockets.connect(downstream_url) as downstream:
-            async def client_to_service():
-                while True:
-                    message = await websocket.receive_text()
-                    await downstream.send(message)
+        downstream = await websockets.connect(downstream_url)
 
-            async def service_to_client():
-                async for message in downstream:
-                    await websocket.send_text(message)
+        async def client_to_service():
+            while True:
+                message = await websocket.receive_text()
+                await downstream.send(message)
 
-            tasks = [
-                asyncio.create_task(client_to_service()),
-                asyncio.create_task(service_to_client()),
-            ]
+        async def service_to_client():
+            async for message in downstream:
+                await websocket.send_text(message)
 
-            try:
-                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-                for task in pending:
-                    task.cancel()
-                for task in done:
-                    exc = task.exception()
-                    if exc:
-                        raise exc
-            except WebSocketDisconnect:
-                pass
+        tasks = [
+            asyncio.create_task(client_to_service()),
+            asyncio.create_task(service_to_client()),
+        ]
+
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in pending:
+            task.cancel()
+        for task in done:
+            exc = task.exception()
+            if exc:
+                raise exc
+    except WebSocketDisconnect:
+        pass
     except Exception as exc:
         await websocket.send_json({
             "type": "ERROR",
@@ -273,3 +274,9 @@ async def websocket_proxy(websocket: WebSocket, doc_id: str, token: str):
             "error": str(exc),
         })
         await websocket.close(code=1011, reason="Gateway could not reach websocket service")
+    finally:
+        if downstream is not None:
+            try:
+                await downstream.close()
+            except Exception:
+                pass

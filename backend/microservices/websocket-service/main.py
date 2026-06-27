@@ -2,6 +2,7 @@ import json
 import sys
 import traceback
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
@@ -58,6 +59,15 @@ class ConnectionManager:
         if doc_id in self.room and not self.room[doc_id]:
             self.room.pop(doc_id, None)
 
+    async def close_room(self, doc_id: str, code: int = 1000, reason: str = ""):
+        conns = list(self.room.get(doc_id, []))
+        for conn in conns:
+            try:
+                await conn.close(code=code, reason=reason)
+            except Exception:
+                pass
+        self.room.pop(doc_id, None)
+
 
 manager = ConnectionManager()
 
@@ -73,6 +83,7 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str, token: str):
     participant = None
     session = None
     room_doc_id = None
+    room_key: Optional[str] = None
 
     try:
         await websocket.accept()
@@ -112,18 +123,15 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str, token: str):
             msg_type = msg.get("type")
             if msg_type == "END_SESSION":
                 end_session(session.id, db)
-                for conn in list(manager.room.get(room_key, [])):
-                    try:
-                        await conn.close(code=1000, reason="Session ended by host")
-                    except Exception:
-                        pass
-                manager.room[room_key] = []
+                await manager.close_room(room_key, code=1000, reason="Session ended by host")
                 break
 
             if msg_type == "BLOCK_UPDATE":
                 block_id = msg.get("block_id")
                 content = msg.get("content", "")
-                update_single_block(block_id, content, db)
+                block = update_single_block(block_id, content, db)
+                if not block:
+                    continue
                 await manager.broadcast(room_key, json.dumps({
                     "type": "BLOCK_UPDATE",
                     "block_id": block_id,
@@ -138,8 +146,8 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str, token: str):
             user_disconnect(participant.id, db)
         if session:
             empty_session(session.id, db)
-        if room_doc_id:
-            manager.disconnect(str(room_doc_id), websocket)
+        if room_key:
+            manager.disconnect(room_key, websocket)
     except Exception as exc:
         print("WS error:", exc)
         traceback.print_exc()
@@ -148,4 +156,16 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str, token: str):
         except Exception:
             pass
     finally:
+        if participant:
+            try:
+                user_disconnect(participant.id, db)
+            except Exception:
+                pass
+        if session:
+            try:
+                empty_session(session.id, db)
+            except Exception:
+                pass
+        if room_key:
+            manager.disconnect(room_key, websocket)
         db.close()
