@@ -113,6 +113,33 @@ REACT_APP_API_URL=https://api.example.com
 REACT_APP_WS_URL=wss://api.example.com
 ```
 
+## Nginx WebSocket proxy config
+
+For the current DuckDNS domain, use:
+
+- [nginx/yourdocs.duckdns.org.conf](/C:/Your%20Docs/backend/nginx/yourdocs.duckdns.org.conf:1)
+
+On EC2, copy it into Nginx and reload:
+
+```bash
+sudo cp nginx/yourdocs.duckdns.org.conf /etc/nginx/sites-available/yourdocs.duckdns.org
+sudo ln -sf /etc/nginx/sites-available/yourdocs.duckdns.org /etc/nginx/sites-enabled/yourdocs.duckdns.org
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+The important WebSocket settings are inside `location /ws/`:
+
+```nginx
+proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "upgrade";
+proxy_read_timeout 3600s;
+proxy_buffering off;
+```
+
+Without these headers, browser WebSocket connections commonly fail with close code `1006` even when normal HTTP APIs work.
+
 ## Prediction service note
 
 The prediction service now works best in external API mode instead of loading TensorFlow locally.
