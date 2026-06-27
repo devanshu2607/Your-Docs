@@ -193,9 +193,17 @@ EOF
 
                         scp -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "$BACKEND_DIR/.env.aws" "${AWS_EC2_USER}@${AWS_EC2_HOST}:${AWS_APP_DIR}/.env.aws"
 
+                        scp -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no \
+                            "$BACKEND_DIR/nginx/yourdocs.duckdns.org.conf" \
+                            "${AWS_EC2_USER}@${AWS_EC2_HOST}:/tmp/yourdocs.duckdns.org.conf"
+
                         ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
                             cd '${AWS_APP_DIR}' && \
-                            docker compose -f docker-compose.aws.yml --env-file .env.aws up -d --build --remove-orphans
+                            docker compose -f docker-compose.aws.yml --env-file .env.aws up -d --build --remove-orphans && \
+                            sudo mv /tmp/yourdocs.duckdns.org.conf /etc/nginx/sites-available/yourdocs.duckdns.org && \
+                            sudo ln -sf /etc/nginx/sites-available/yourdocs.duckdns.org /etc/nginx/sites-enabled/yourdocs.duckdns.org && \
+                            sudo nginx -t && \
+                            sudo systemctl reload nginx
                         "
                     '''
                 }
