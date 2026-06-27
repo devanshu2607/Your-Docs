@@ -399,7 +399,32 @@ function Toolbar({ readOnly }) {
     const fmt   = t  => editor.dispatchCommand(FORMAT_TEXT_COMMAND, t)
     const block = fn => editor.update(() => {
         const sel = $getSelection()
-        if ($isRangeSelection(sel)) $setBlocksType(sel, fn)
+        if ($isRangeSelection(sel)) {
+            if (sel.isCollapsed()) {
+                $setBlocksType(sel, fn)
+            } else {
+                const anchor = sel.anchor
+                const focus = sel.focus
+                const isBackward = sel.isBackward()
+                const start = isBackward ? focus : anchor
+                const end = isBackward ? anchor : focus
+
+                // 1. Split at the end point first to preserve start point references
+                const endSel = $createRangeSelection()
+                endSel.anchor.set(end.key, end.offset, end.type)
+                endSel.focus.set(end.key, end.offset, end.type)
+                endSel.insertParagraph()
+
+                // 2. Split at the start point
+                const startSel = $createRangeSelection()
+                startSel.anchor.set(start.key, start.offset, start.type)
+                startSel.focus.set(start.key, start.offset, start.type)
+                startSel.insertParagraph()
+
+                // 3. Format the split middle block
+                $setBlocksType(startSel, fn)
+            }
+        }
     })
     if (readOnly) return null
     return (
