@@ -22,6 +22,8 @@ import {
     KEY_TAB_COMMAND, COMMAND_PRIORITY_EDITOR,
     ElementNode,
     $getNodeByKey,
+    $createRangeSelection,
+    $setSelection,
 } from 'lexical'
 import { $setBlocksType }                        from '@lexical/selection'
 import { $createHeadingNode, $createQuoteNode }  from '@lexical/rich-text'
@@ -156,14 +158,13 @@ function applyContentToEditor(editor, content) {
 
             if (selectionState) {
                 editor.update(() => {
-                    const sel = $getSelection()
-                    if ($isRangeSelection(sel)) {
-                        const anchorNode = $getNodeByKey(selectionState.anchorKey)
-                        const focusNode = $getNodeByKey(selectionState.focusKey)
-                        if (anchorNode && focusNode) {
-                            sel.anchor.set(selectionState.anchorKey, selectionState.anchorOffset, 'text')
-                            sel.focus.set(selectionState.focusKey, selectionState.focusOffset, 'text')
-                        }
+                    const anchorNode = $getNodeByKey(selectionState.anchorKey)
+                    const focusNode = $getNodeByKey(selectionState.focusKey)
+                    if (anchorNode && focusNode) {
+                        const sel = $createRangeSelection()
+                        sel.anchor.set(selectionState.anchorKey, selectionState.anchorOffset, 'text')
+                        sel.focus.set(selectionState.focusKey, selectionState.focusOffset, 'text')
+                        $setSelection(sel)
                     }
                 })
             }
