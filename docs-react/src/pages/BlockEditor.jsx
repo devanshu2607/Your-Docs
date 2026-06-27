@@ -21,6 +21,7 @@ import {
     $getSelection, $isRangeSelection, FORMAT_TEXT_COMMAND,
     KEY_TAB_COMMAND, COMMAND_PRIORITY_EDITOR,
     ElementNode,
+    $getNodeByKey,
 } from 'lexical'
 import { $setBlocksType }                        from '@lexical/selection'
 import { $createHeadingNode, $createQuoteNode }  from '@lexical/rich-text'
@@ -111,12 +112,61 @@ const theme = {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+function getTextUpToCursor(selection) {
+    if (!selection || !$isRangeSelection(selection)) return ''
+    const anchor = selection.anchor
+    const anchorNode = anchor.getNode()
+    const element = anchorNode.getTopLevelElement()
+    if (!element) return ''
+
+    let text = ''
+    const children = element.getChildren()
+    for (const child of children) {
+        if (child.getKey() === anchorNode.getKey()) {
+            if (anchor.type === 'text') {
+                text += child.getTextContent().slice(0, anchor.offset)
+            }
+            break
+        }
+        text += child.getTextContent()
+    }
+    return text
+}
+
 function applyContentToEditor(editor, content) {
     if (!content) return
     const trimmed = content.trim()
     if (trimmed.startsWith('{')) {
         try {
-            editor.setEditorState(editor.parseEditorState(trimmed))
+            let selectionState = null
+            editor.getEditorState().read(() => {
+                const sel = $getSelection()
+                if ($isRangeSelection(sel)) {
+                    selectionState = {
+                        anchorKey: sel.anchor.key,
+                        anchorOffset: sel.anchor.offset,
+                        focusKey: sel.focus.key,
+                        focusOffset: sel.focus.offset,
+                    }
+                }
+            })
+
+            const nextState = editor.parseEditorState(trimmed)
+            editor.setEditorState(nextState)
+
+            if (selectionState) {
+                editor.update(() => {
+                    const sel = $getSelection()
+                    if ($isRangeSelection(sel)) {
+                        const anchorNode = $getNodeByKey(selectionState.anchorKey)
+                        const focusNode = $getNodeByKey(selectionState.focusKey)
+                        if (anchorNode && focusNode) {
+                            sel.anchor.set(selectionState.anchorKey, selectionState.anchorOffset, 'text')
+                            sel.focus.set(selectionState.focusKey, selectionState.focusOffset, 'text')
+                        }
+                    }
+                })
+            }
             return
         } catch (e) {
             console.warn('State parse failed, falling back to plain text', e)
@@ -251,11 +301,12 @@ function SuggestionPlugin() {
     useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
             // Extract text SYNCHRONOUSLY inside read() — no async here.
-            // We only want actual words, not punctuation-heavy fragments or JSON-ish noise.
+            // We want context up to the cursor in the active block/paragraph.
             let lastPhrase = ''
             editorState.read(() => {
-                const text = $getRoot().getTextContent().toLowerCase()
-                const words = text.match(/[a-z][a-z']*/g) || []
+                const selection = $getSelection()
+                const textBefore = getTextUpToCursor(selection).toLowerCase()
+                const words = textBefore.match(/[a-z0-9'][a-z0-9']*/g) || []
                 lastPhrase = words.slice(-12).join(' ')
             })
             // read() is now done. Safe to be async below.
@@ -291,7 +342,24 @@ function SuggestionPlugin() {
                 const word = suggRef.current
                 editor.update(() => {
                     const sel = $getSelection()
-                    if ($isRangeSelection(sel)) sel.insertText(word + ' ')
+                    if ($isRangeSelection(sel)) {
+                        const anchor = sel.anchor
+                        if (anchor.type === 'text') {
+                            const anchorNode = anchor.getNode()
+                            const offset = anchor.offset
+                            const textContent = anchorNode.getTextContent()
+                            const textBefore = textContent.slice(0, offset)
+                            const match = textBefore.match(/[a-z0-9']+$/i)
+                            if (match) {
+                                const typedPrefix = match[0]
+                                if (word.toLowerCase().startsWith(typedPrefix.toLowerCase())) {
+                                    // Select the typed prefix so insertText replaces it
+                                    sel.anchor.set(anchorNode.getKey(), offset - typedPrefix.length, 'text')
+                                }
+                            }
+                        }
+                        sel.insertText(word + ' ')
+                    }
                 })
                 setSuggestion('')
                 return true
