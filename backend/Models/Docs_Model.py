@@ -10,5 +10,6 @@ class Document(Base):
     id = Column(UUID(as_uuid = True) , primary_key= True , default = uuid.uuid4)
     title = Column(String)
     content = Column(String)
+    join_code = Column(String(6), unique=True, index=True, nullable=True)
 
     created_by = Column(UUID(as_uuid = True) , ForeignKey("User_Table.id"))

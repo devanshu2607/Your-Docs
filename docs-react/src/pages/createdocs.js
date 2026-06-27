@@ -14,6 +14,7 @@ export default function CreateDocs() {
     const [blocks, setBlocks]       = useState([])
     const [title, setTitle]         = useState("")
     const [joinCode, setJoinCode]   = useState("")
+    const [shareCode, setShareCode] = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -63,8 +64,10 @@ export default function CreateDocs() {
             const res    = await api.post('/create_docs', { title, content: '' })
             const newId  = res.data.id
             setDocId(newId)
+            setShareCode(res.data.join_code || "")
             const docRes = await api.post(`/get_doc/${newId}`)
             setBlocks(docRes.data.blocks || [])
+            setShareCode(docRes.data.join_code || res.data.join_code || "")
         } catch { setError("Doc could not be created") }
     }
 
@@ -188,7 +191,7 @@ export default function CreateDocs() {
                         <input
                             placeholder="Enter Code"
                             value={joinCode}
-                            onChange={e => setJoinCode(e.target.value)}
+                            onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
                         />
                         <span className="nav-link" onClick={() => {
                             if (!joinCode) return alert("Enter code")
@@ -216,10 +219,10 @@ export default function CreateDocs() {
                     <div className="btn" onClick={handleCreateDocs}>Create Doc</div>
                 )}
 
-                {showCode && docId && (
+                {showCode && (shareCode || docId) && (
                     <div style={{ margin: "10px 0" }}>
                         <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
-                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace" }}>{docId}</b>
+                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace", letterSpacing: "0.12em" }}>{shareCode || docId}</b>
                     </div>
                 )}
 

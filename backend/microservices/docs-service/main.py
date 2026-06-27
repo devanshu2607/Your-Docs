@@ -1,7 +1,6 @@
 import os
 import sys
 from pathlib import Path
-from uuid import UUID
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,13 +52,13 @@ def user_docs(db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
 
 
 @app.post("/get_doc/{docs_id}")
-def view_single(docs_id: UUID, db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
+def view_single(docs_id: str, db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
     return view_docs(docs_id, db, user)
 
 
 @app.put("/update_docs/{docs_id}")
 def update_docs_route(
-    docs_id: UUID,
+    docs_id: str,
     data: Update_Docs,
     user=Depends(Jwt_Token_Checker),
     db: Session = Depends(get_db),
@@ -68,10 +67,10 @@ def update_docs_route(
 
 
 @app.delete("/delete_docs/{docs_id}")
-def delete(docs_id: UUID, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
+def delete(docs_id: str, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
     return delete_docs(docs_id, user, db)
 
 
 @app.post("/join_docs/{doc_id}")
-def join_document(doc_id: UUID, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
+def join_document(doc_id: str, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
     return join_doc(doc_id, user, db)

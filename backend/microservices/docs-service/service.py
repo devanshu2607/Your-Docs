@@ -1,3 +1,5 @@
+import random
+import string
 import uuid
 
 from fastapi import HTTPException
@@ -10,6 +12,46 @@ from Models.Participating_Model import SessionParticipant
 from Models.User_Document import UserDocument
 
 LINES_PER_BLOCK = 5
+JOIN_CODE_ALPHABET = string.ascii_uppercase + string.digits
+JOIN_CODE_LENGTH = 6
+
+
+def _generate_join_code() -> str:
+    return "".join(random.choice(JOIN_CODE_ALPHABET) for _ in range(JOIN_CODE_LENGTH))
+
+
+def _assign_unique_join_code(db: Session, doc: Document) -> str:
+    if doc.join_code:
+        return doc.join_code
+
+    for _ in range(30):
+        code = _generate_join_code()
+        exists = db.query(Document.id).filter(Document.join_code == code).first()
+        if not exists:
+            doc.join_code = code
+            return code
+
+    raise HTTPException(500, detail="Could not generate a unique join code")
+
+
+def _resolve_doc(db: Session, doc_ref):
+    doc_ref = str(doc_ref).strip()
+    if not doc_ref:
+        raise HTTPException(404, detail="Doc not found")
+
+    doc = db.query(Document).filter(Document.join_code == doc_ref.upper()).first()
+    if doc:
+        return doc
+
+    try:
+        doc_uuid = uuid.UUID(doc_ref)
+    except ValueError:
+        raise HTTPException(404, detail="Doc not found")
+
+    doc = db.query(Document).filter(Document.id == doc_uuid).first()
+    if not doc:
+        raise HTTPException(404, detail="Doc not found")
+    return doc
 
 
 def _split_into_blocks(content: str) -> list[str]:
@@ -21,7 +63,6 @@ def _split_into_blocks(content: str) -> list[str]:
 
 
 def _get_active_user_doc(db: Session, user_id, docs_id):
-    docs_id = str(docs_id)
     rows = (
         db.query(UserDocument)
         .filter(
@@ -41,6 +82,7 @@ def creating_docs(data, db: Session, user):
     doc = Document(title=data.title, content="", created_by=user.id)
     db.add(doc)
     db.flush()
+    _assign_unique_join_code(db, doc)
 
     db.add(UserDocument(user_id=user.id, doc_id=doc.id, role="owner"))
     db.add(DocBlock(doc_id=doc.id, block_index=0, content=""))
@@ -51,23 +93,24 @@ def creating_docs(data, db: Session, user):
 
 
 def view_docs(docs_id, db: Session, user):
-    user_doc = _get_active_user_doc(db, user.id, docs_id)
+    doc = _resolve_doc(db, docs_id)
+    _assign_unique_join_code(db, doc)
+
+    user_doc = _get_active_user_doc(db, user.id, doc.id)
     if not user_doc:
         raise HTTPException(404, detail="No Access")
 
-    doc = db.query(Document).filter(Document.id == str(docs_id)).first()
-    if not doc:
-        raise HTTPException(404, detail="Doc not found")
-
     blocks = (
         db.query(DocBlock)
-        .filter(DocBlock.doc_id == str(docs_id))
+        .filter(DocBlock.doc_id == doc.id)
         .order_by(DocBlock.block_index)
         .all()
     )
+    db.commit()
 
     return {
         "id": str(doc.id),
+        "join_code": doc.join_code,
         "title": doc.title,
         "role": user_doc.role,
         "blocks": [
@@ -84,9 +127,14 @@ def docs(db: Session, user):
         .filter(UserDocument.user_id == user.id, UserDocument.is_deleted == False)
         .all()
     ) or []
+    for doc in rows:
+        _assign_unique_join_code(db, doc)
+    if rows:
+        db.commit()
     return [
         {
             "id": str(doc.id),
+            "join_code": doc.join_code,
             "title": doc.title,
             "content": doc.content or "",
             "created_by": str(doc.created_by) if doc.created_by else None,
@@ -96,13 +144,10 @@ def docs(db: Session, user):
 
 
 def update_docs(docs_id, user, db: Session, data):
-    user_doc = _get_active_user_doc(db, user.id, docs_id)
+    existing_doc = _resolve_doc(db, docs_id)
+    user_doc = _get_active_user_doc(db, user.id, existing_doc.id)
     if not user_doc:
         raise HTTPException(403, detail="No access")
-
-    existing_doc = db.query(Document).filter(Document.id == str(docs_id)).first()
-    if not existing_doc:
-        raise HTTPException(404, detail="Docs not found")
 
     if data.title is not None:
         existing_doc.title = data.title
@@ -112,7 +157,7 @@ def update_docs(docs_id, user, db: Session, data):
         block_texts = _split_into_blocks(data.content)
         existing_blocks = (
             db.query(DocBlock)
-            .filter(DocBlock.doc_id == str(docs_id))
+            .filter(DocBlock.doc_id == existing_doc.id)
             .order_by(DocBlock.block_index)
             .all()
         )
@@ -121,7 +166,7 @@ def update_docs(docs_id, user, db: Session, data):
             if i < len(existing_blocks):
                 existing_blocks[i].content = text
             else:
-                db.add(DocBlock(doc_id=str(docs_id), block_index=i, content=text))
+                db.add(DocBlock(doc_id=existing_doc.id, block_index=i, content=text))
 
         for extra in existing_blocks[len(block_texts):]:
             db.delete(extra)
@@ -132,17 +177,15 @@ def update_docs(docs_id, user, db: Session, data):
 
 
 def delete_docs(docs_id, user, db: Session):
-    user_doc = _get_active_user_doc(db, user.id, docs_id)
-    existing_doc = db.query(Document).filter(Document.id == str(docs_id)).first()
-    if not existing_doc:
-        raise HTTPException(404, detail="Doc not found")
+    existing_doc = _resolve_doc(db, docs_id)
+    user_doc = _get_active_user_doc(db, user.id, existing_doc.id)
 
     is_owner = str(existing_doc.created_by) == str(user.id) or (user_doc and user_doc.role == "owner")
     if not is_owner:
         raise HTTPException(403, detail="Only the owner can delete this document")
 
     db.query(UserDocument).filter(
-        UserDocument.doc_id == str(docs_id),
+        UserDocument.doc_id == existing_doc.id,
         UserDocument.is_deleted == False,
     ).update({UserDocument.is_deleted: True}, synchronize_session=False)
     db.commit()
@@ -150,9 +193,12 @@ def delete_docs(docs_id, user, db: Session):
 
 
 def join_doc(docs_id, user, db: Session):
+    doc = _resolve_doc(db, docs_id)
+    _assign_unique_join_code(db, doc)
+
     existing_rows = db.query(UserDocument).filter(
         UserDocument.user_id == user.id,
-        UserDocument.doc_id == str(docs_id),
+        UserDocument.doc_id == doc.id,
     ).all()
 
     active_row = next((row for row in existing_rows if not row.is_deleted), None)
@@ -164,9 +210,14 @@ def join_doc(docs_id, user, db: Session):
         reusable_row.is_deleted = False
         reusable_row.role = reusable_row.role or "editor"
     else:
-        reusable_row = UserDocument(user_id=user.id, doc_id=str(docs_id), role="editor")
+        reusable_row = UserDocument(user_id=user.id, doc_id=doc.id, role="editor")
         db.add(reusable_row)
 
     db.commit()
     db.refresh(reusable_row)
-    return reusable_row
+    return {
+        "id": str(reusable_row.id),
+        "doc_id": str(doc.id),
+        "join_code": doc.join_code,
+        "role": reusable_row.role,
+    }

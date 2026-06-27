@@ -19,6 +19,7 @@ export default function UpdateDocs() {
     const [saved, setSaved]         = useState(false)
     const [loading, setLoading]     = useState(false)
     const [joinCode, setJoinCode]   = useState("")
+    const [shareCode, setShareCode] = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -45,6 +46,7 @@ export default function UpdateDocs() {
                 setTitle(res.data.title || "")
                 setBlocks(res.data.blocks || [])
                 setRole(res.data.role || "editor")
+                setShareCode(res.data.join_code || "")
             })
             .catch(() => setError("Doc load failed"))
     }, [id])
@@ -187,7 +189,7 @@ export default function UpdateDocs() {
                         <input
                             placeholder="Enter Code"
                             value={joinCode}
-                            onChange={e => setJoinCode(e.target.value)}
+                            onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
                         />
                         <span className="nav-link" onClick={() => {
                             if (!joinCode) return alert("Enter code")
@@ -211,10 +213,10 @@ export default function UpdateDocs() {
                         onChange={e => setTitle(e.target.value)} />
                 </div>
 
-                {showCode && id && (
+                {showCode && (shareCode || id) && (
                     <div style={{ margin: "10px 0" }}>
                         <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
-                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace" }}>{id}</b>
+                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace", letterSpacing: "0.12em" }}>{shareCode || id}</b>
                     </div>
                 )}
 

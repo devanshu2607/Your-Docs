@@ -2,7 +2,6 @@ import json
 import sys
 import traceback
 from pathlib import Path
-from uuid import UUID
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
@@ -18,6 +17,7 @@ from service import (
     get_doc_blocks,
     get_or_create_session,
     join_doc,
+    resolve_doc,
     update_single_block,
     user_disconnect,
 )
@@ -68,10 +68,11 @@ def health():
 
 
 @app.websocket("/ws/{doc_id}")
-async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
+async def websocket_endpoint(websocket: WebSocket, doc_id: str, token: str):
     db = SessionLocal()
     participant = None
     session = None
+    room_doc_id = None
 
     try:
         await websocket.accept()
@@ -83,8 +84,10 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
             return
 
         try:
-            join_doc(doc_id, user, db)
-            session = get_or_create_session(doc_id, user.id, db)
+            doc = resolve_doc(doc_id, db)
+            room_doc_id = doc.id
+            join_doc(room_doc_id, user, db)
+            session = get_or_create_session(room_doc_id, user.id, db)
             participant = add_participant(session.id, user.id, db)
         except Exception as exc:
             print("WS bootstrap failed:", exc)
@@ -92,10 +95,11 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
             await websocket.close(code=1011, reason="Session bootstrap failed")
             return
 
-        await manager.connect(doc_id, websocket)
+        room_key = str(room_doc_id)
+        await manager.connect(room_key, websocket)
         await websocket.send_text(json.dumps({
             "type": "INIT_BLOCKS",
-            "blocks": get_doc_blocks(doc_id, db),
+            "blocks": get_doc_blocks(room_doc_id, db),
         }))
 
         while True:
@@ -108,33 +112,34 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: UUID, token: str):
             msg_type = msg.get("type")
             if msg_type == "END_SESSION":
                 end_session(session.id, db)
-                for conn in list(manager.room.get(doc_id, [])):
+                for conn in list(manager.room.get(room_key, [])):
                     try:
                         await conn.close(code=1000, reason="Session ended by host")
                     except Exception:
                         pass
-                manager.room[doc_id] = []
+                manager.room[room_key] = []
                 break
 
             if msg_type == "BLOCK_UPDATE":
                 block_id = msg.get("block_id")
                 content = msg.get("content", "")
                 update_single_block(block_id, content, db)
-                await manager.broadcast(doc_id, json.dumps({
+                await manager.broadcast(room_key, json.dumps({
                     "type": "BLOCK_UPDATE",
                     "block_id": block_id,
                     "content": content,
                 }), exclude=websocket)
                 continue
 
-            await manager.broadcast(doc_id, raw, exclude=websocket)
+            await manager.broadcast(room_key, raw, exclude=websocket)
 
     except WebSocketDisconnect:
         if participant:
             user_disconnect(participant.id, db)
         if session:
             empty_session(session.id, db)
-        manager.disconnect(doc_id, websocket)
+        if room_doc_id:
+            manager.disconnect(str(room_doc_id), websocket)
     except Exception as exc:
         print("WS error:", exc)
         traceback.print_exc()

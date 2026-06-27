@@ -37,6 +37,9 @@ def wait_for_database(max_attempts: int = 30, delay_seconds: int = 2) -> None:
 def main() -> None:
     wait_for_database()
     Base.metadata.create_all(bind=Engine)
+    from scripts.add_join_codes import main as add_join_codes
+
+    add_join_codes()
     print("Database tables created or already present.")
 
 

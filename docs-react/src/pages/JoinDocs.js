@@ -171,7 +171,7 @@ export default function JoinDocs() {
                         <input
                             placeholder="Enter Code"
                             value={joinCode}
-                            onChange={e => setJoinCode(e.target.value)}
+                            onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
                         />
                         <span className="nav-link" onClick={() => {
                             if (!joinCode) return alert("Enter code")

@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 
+from fastapi import HTTPException
+
 from Models.Block_Model import DocBlock
 from Models.Collabration_Model import CollaborationSession
 from Models.Docs_Model import Document  # Ensures Docs_table is registered in metadata.
@@ -9,10 +11,27 @@ from Models.User_Model import User  # Ensures User_Table is registered in metada
 from Models.User_Document import UserDocument
 
 
+def resolve_doc(doc_ref, db):
+    doc_ref = str(doc_ref).strip()
+    doc = db.query(Document).filter(Document.join_code == doc_ref.upper()).first()
+    if doc:
+        return doc
+
+    try:
+        doc_uuid = uuid.UUID(doc_ref)
+    except ValueError:
+        raise HTTPException(404, detail="Doc not found")
+
+    doc = db.query(Document).filter(Document.id == doc_uuid).first()
+    if not doc:
+        raise HTTPException(404, detail="Doc not found")
+    return doc
+
+
 def get_doc_blocks(docs_id, db):
     blocks = (
         db.query(DocBlock)
-        .filter(DocBlock.doc_id == str(docs_id))
+        .filter(DocBlock.doc_id == docs_id)
         .order_by(DocBlock.block_index)
         .all()
     )
@@ -32,14 +51,14 @@ def update_single_block(block_id, content, db):
 
 def get_or_create_session(docs_id, user_id, db):
     session = db.query(CollaborationSession).filter(
-        CollaborationSession.doc_id == str(docs_id),
+        CollaborationSession.doc_id == docs_id,
         CollaborationSession.ended_at == None,
     ).first()
     if session:
         return session
 
     session = CollaborationSession(
-        doc_id=str(docs_id),
+        doc_id=docs_id,
         token=str(uuid.uuid4()),
         created_by=user_id,
     )
@@ -94,7 +113,7 @@ def end_session(session_id, db):
 def join_doc(docs_id, user, db):
     existing_rows = db.query(UserDocument).filter(
         UserDocument.user_id == user.id,
-        UserDocument.doc_id == str(docs_id),
+        UserDocument.doc_id == docs_id,
     ).all()
 
     active_row = next((row for row in existing_rows if not row.is_deleted), None)
@@ -106,7 +125,7 @@ def join_doc(docs_id, user, db):
         reusable_row.is_deleted = False
         reusable_row.role = reusable_row.role or "editor"
     else:
-        reusable_row = UserDocument(user_id=user.id, doc_id=str(docs_id), role="editor")
+        reusable_row = UserDocument(user_id=user.id, doc_id=docs_id, role="editor")
         db.add(reusable_row)
 
     db.commit()
