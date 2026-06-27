@@ -53,13 +53,19 @@ export default function JoinDocs() {
         if (!docId) return
 
         const loadAndConnect = async () => {
+            let resolvedDocId = docId
             try {
-                await api.post(`/join_docs/${docId}`)
-                const res = await api.post(`/get_doc/${docId}`)
+                setError("")
+                const joinRes = await api.post(`/join_docs/${docId}`)
+                resolvedDocId = joinRes.data?.doc_id || docId
+                const res = await api.post(`/get_doc/${resolvedDocId}`)
+                resolvedDocId = res.data?.id || resolvedDocId
                 setBlocks(res.data.blocks || [])
             } catch (e) {
                 console.error("Fetch failed", e)
                 setError("Failed to load document. Please try again.")
+                setJoined(false)
+                return
             }
 
             manualCloseRef.current = false
@@ -72,7 +78,7 @@ export default function JoinDocs() {
                 console.error("Missing auth token for websocket connection")
                 return
             }
-            const cleanId = docId.trim()
+            const cleanId = resolvedDocId.trim()
             const socket  = new WebSocket(getDocWsUrl(cleanId, token))
 
             socket.onopen = () => {
