@@ -16,6 +16,15 @@ SessionLocal = sessionmaker(autoflush= False , autocommit = False , bind = Engin
 
 Base = declarative_base()
 
+from sqlalchemy import event
+
+@event.listens_for(Engine, "connect")
+def set_search_path(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET search_path TO your_docs")
+    cursor.close()
+
+
 
 
 def get_db():
