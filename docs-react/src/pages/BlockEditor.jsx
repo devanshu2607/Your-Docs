@@ -25,7 +25,7 @@ import {
     $createRangeSelection,
     $setSelection,
 } from 'lexical'
-import { $setBlocksType }                        from '@lexical/selection'
+import { $setBlocksType, $patchStyleText }        from '@lexical/selection'
 import { $createHeadingNode, $createQuoteNode }  from '@lexical/rich-text'
 import { $createCodeNode }                       from '@lexical/code'
 import api from '../Auth/axios'
@@ -397,37 +397,27 @@ function SuggestionPlugin() {
 function Toolbar({ readOnly }) {
     const [editor] = useLexicalComposerContext()
     const fmt   = t  => editor.dispatchCommand(FORMAT_TEXT_COMMAND, t)
-    const block = fn => editor.update(() => {
+    const applyBlockFormat = fn => editor.update(() => {
+        const sel = $getSelection()
+        if ($isRangeSelection(sel)) {
+            $setBlocksType(sel, fn)
+        }
+    })
+
+    const applyCalloutColor = (themeName, bg, fg) => editor.update(() => {
         const sel = $getSelection()
         if ($isRangeSelection(sel)) {
             if (sel.isCollapsed()) {
-                $setBlocksType(sel, fn)
+                $setBlocksType(sel, () => new CalloutNode(themeName))
             } else {
-                const anchor = sel.anchor
-                const focus = sel.focus
-                const isBackward = sel.isBackward()
-                const start = isBackward ? focus : anchor
-                const end = isBackward ? anchor : focus
-
-                // 1. Split at the end point first to preserve start point references
-                const endSel = $createRangeSelection()
-                endSel.anchor.set(end.key, end.offset, end.type)
-                endSel.focus.set(end.key, end.offset, end.type)
-                $setSelection(endSel)
-                endSel.insertParagraph()
-
-                // 2. Split at the start point
-                const startSel = $createRangeSelection()
-                startSel.anchor.set(start.key, start.offset, start.type)
-                startSel.focus.set(start.key, start.offset, start.type)
-                $setSelection(startSel)
-                startSel.insertParagraph()
-
-                // 3. Format the split middle block
-                $setBlocksType(startSel, fn)
+                $patchStyleText(sel, {
+                    'background-color': bg,
+                    'color': fg,
+                })
             }
         }
     })
+
     if (readOnly) return null
     return (
         <div className="lex-toolbar">
@@ -436,15 +426,15 @@ function Toolbar({ readOnly }) {
             <button onMouseDown={e => { e.preventDefault(); fmt('underline') }}><u>U</u></button>
             <button onMouseDown={e => { e.preventDefault(); fmt('strikethrough') }}>S̶</button>
             <span className="lex-divider" />
-            <button onMouseDown={e => { e.preventDefault(); block(() => $createHeadingNode('h1')) }}>H1</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => $createHeadingNode('h2')) }}>H2</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => $createHeadingNode('h3')) }}>H3</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => $createQuoteNode()) }}>❝</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => $createCodeNode()) }}>&lt;/&gt;</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => new CalloutNode('mint')) }} className="tb-callout-mint" title="Mint Block">🟢</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => new CalloutNode('magenta')) }} className="tb-callout-magenta" title="Pink Block">🔴</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => new CalloutNode('blue')) }} className="tb-callout-blue" title="Blue Block">🔵</button>
-            <button onMouseDown={e => { e.preventDefault(); block(() => $createParagraphNode()) }}>¶</button>
+            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createHeadingNode('h1')) }}>H1</button>
+            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createHeadingNode('h2')) }}>H2</button>
+            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createHeadingNode('h3')) }}>H3</button>
+            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createQuoteNode()) }}>❝</button>
+            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createCodeNode()) }}>&lt;/&gt;</button>
+            <button onMouseDown={e => { e.preventDefault(); applyCalloutColor('mint', '#f4fcf7', '#087f5b') }} className="tb-callout-mint" title="Mint Inline/Block">🟢</button>
+            <button onMouseDown={e => { e.preventDefault(); applyCalloutColor('magenta', '#fff0f6', '#c2255c') }} className="tb-callout-magenta" title="Pink Inline/Block">🔴</button>
+            <button onMouseDown={e => { e.preventDefault(); applyCalloutColor('blue', '#e7f5ff', '#1971c2') }} className="tb-callout-blue" title="Blue Inline/Block">🔵</button>
+            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createParagraphNode()) }}>¶</button>
         </div>
     )
 }
