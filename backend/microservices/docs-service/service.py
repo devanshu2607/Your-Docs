@@ -1,4 +1,5 @@
 import random
+import string
 import uuid
 
 from fastapi import HTTPException
@@ -12,10 +13,11 @@ from Models.User_Document import UserDocument
 
 LINES_PER_BLOCK = 5
 JOIN_CODE_LENGTH = 6
+JOIN_CODE_ALPHABET = string.ascii_uppercase + string.digits
 
 
 def _generate_join_code() -> str:
-    return "".join(random.choice("0123456789") for _ in range(JOIN_CODE_LENGTH))
+    return "".join(random.choice(JOIN_CODE_ALPHABET) for _ in range(JOIN_CODE_LENGTH))
 
 
 def _assign_unique_join_code(db: Session, doc: Document) -> str:

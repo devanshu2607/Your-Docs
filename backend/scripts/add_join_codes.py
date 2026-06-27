@@ -1,4 +1,5 @@
 import random
+import string
 import sys
 from pathlib import Path
 
@@ -11,10 +12,11 @@ if str(BACKEND_DIR) not in sys.path:
 from Database.DataBase import Engine  # noqa: E402
 
 JOIN_CODE_LENGTH = 6
+JOIN_CODE_ALPHABET = string.ascii_uppercase + string.digits
 
 
 def generate_join_code() -> str:
-    return "".join(random.choice("0123456789") for _ in range(JOIN_CODE_LENGTH))
+    return "".join(random.choice(JOIN_CODE_ALPHABET) for _ in range(JOIN_CODE_LENGTH))
 
 
 def main() -> None:
