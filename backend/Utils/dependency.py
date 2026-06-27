@@ -1,4 +1,4 @@
-from jose import jwt 
+from jose import JWTError, jwt 
 from Models.User_Model import User
 from fastapi import HTTPException , Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -17,7 +17,11 @@ ALOGORITHM = "HS256"
 authoscheme = OAuth2PasswordBearer(tokenUrl='login_user')
 
 def Jwt_Token_Checker(token : Session = Depends(authoscheme) , db : Session = Depends(get_db)):
-    payload = jwt.decode(token , SECRET_KEY , algorithms=[ALOGORITHM])
+    try:
+        payload = jwt.decode(token , SECRET_KEY , algorithms=[ALOGORITHM])
+    except JWTError:
+        raise HTTPException(401, detail="Session expired. Please log in again.")
+
     user_id = payload.get("user_id")
     try:
         user_uuid = UUID(str(user_id))
@@ -31,8 +35,11 @@ def Jwt_Token_Checker(token : Session = Depends(authoscheme) , db : Session = De
     return user 
 
 def verify_user_token(token: str, db: Session):
-    # decode token
-    payload = jwt.decode(token,SECRET_KEY , algorithms=[ALOGORITHM])   # jo bhi tera logic hai
+    try:
+        payload = jwt.decode(token,SECRET_KEY , algorithms=[ALOGORITHM])
+    except JWTError:
+        raise Exception("Invalid or expired token")
+
     user_id = payload.get("user_id")
     try:
         user_uuid = UUID(str(user_id))
