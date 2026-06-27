@@ -404,6 +404,18 @@ function Toolbar({ readOnly }) {
         }
     })
 
+    const applyInlineStyleOrBlock = (inlineStyles, blockFactory) => editor.update(() => {
+        const sel = $getSelection()
+        if (!$isRangeSelection(sel)) return
+
+        if (sel.isCollapsed()) {
+            $setBlocksType(sel, blockFactory)
+            return
+        }
+
+        $patchStyleText(sel, inlineStyles)
+    })
+
     const applyCalloutColor = (themeName, bg, fg) => editor.update(() => {
         const sel = $getSelection()
         if ($isRangeSelection(sel)) {
@@ -426,9 +438,9 @@ function Toolbar({ readOnly }) {
             <button onMouseDown={e => { e.preventDefault(); fmt('underline') }}><u>U</u></button>
             <button onMouseDown={e => { e.preventDefault(); fmt('strikethrough') }}>S̶</button>
             <span className="lex-divider" />
-            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createHeadingNode('h1')) }}>H1</button>
-            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createHeadingNode('h2')) }}>H2</button>
-            <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createHeadingNode('h3')) }}>H3</button>
+            <button onMouseDown={e => { e.preventDefault(); applyInlineStyleOrBlock({ 'font-size': '2em', 'font-weight': '800' }, () => $createHeadingNode('h1')) }}>H1</button>
+            <button onMouseDown={e => { e.preventDefault(); applyInlineStyleOrBlock({ 'font-size': '1.5em', 'font-weight': '750' }, () => $createHeadingNode('h2')) }}>H2</button>
+            <button onMouseDown={e => { e.preventDefault(); applyInlineStyleOrBlock({ 'font-size': '1.17em', 'font-weight': '700' }, () => $createHeadingNode('h3')) }}>H3</button>
             <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createQuoteNode()) }}>❝</button>
             <button onMouseDown={e => { e.preventDefault(); applyBlockFormat(() => $createCodeNode()) }}>&lt;/&gt;</button>
             <button onMouseDown={e => { e.preventDefault(); applyCalloutColor('mint', '#f4fcf7', '#087f5b') }} className="tb-callout-mint" title="Mint Inline/Block">🟢</button>
