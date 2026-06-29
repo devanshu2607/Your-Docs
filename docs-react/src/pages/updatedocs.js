@@ -20,6 +20,7 @@ export default function UpdateDocs() {
     const [loading, setLoading]     = useState(false)
     const [joinCode, setJoinCode]   = useState("")
     const [shareCode, setShareCode] = useState("")
+    const [sessionToken, setSessionToken] = useState("")
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
@@ -106,6 +107,9 @@ export default function UpdateDocs() {
                 if (msg.type === 'INIT_BLOCKS') {
                     const nextBlocks = msg.blocks || []
                     setBlocks(nextBlocks)
+                    if (msg.session_token) {
+                        setSessionToken(msg.session_token)
+                    }
                     // Only push to queue on very first connect
                     if (!loadedRef.current && nextBlocks[0]?.content) {
                         liveRef.current.push(nextBlocks[0].content)  // ← push to queue
@@ -129,6 +133,7 @@ export default function UpdateDocs() {
         socket.onclose = (ev) => {
             setConnected(false)
             setShowCode(false)
+            setSessionToken("")
             if (manualCloseRef.current) return
             if (ev?.code === 4401) {
                 setError("WebSocket auth failed. Please log in again.")
@@ -159,6 +164,7 @@ export default function UpdateDocs() {
             wsRef.current.send(JSON.stringify({ type: "END_SESSION" }))
         setConnected(false)
         setShowCode(false)
+        setSessionToken("")
         closeSocket()
     }
 
@@ -215,8 +221,16 @@ export default function UpdateDocs() {
 
                 {showCode && (shareCode || id) && (
                     <div style={{ margin: "10px 0" }}>
-                        <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
-                        <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace", letterSpacing: "0.12em" }}>{shareCode || id}</b>
+                        <div>
+                            <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Share Code:</p>
+                            <b style={{ color: "#ffffff", fontSize: "16px", fontFamily: "monospace", letterSpacing: "0.12em" }}>{shareCode || id}</b>
+                        </div>
+                        {sessionToken && (
+                            <div style={{ marginTop: "10px" }}>
+                                <p style={{ color: "#a0a5b0", marginBottom: "4px" }}>Session Token (Joining Token):</p>
+                                <b style={{ color: "#60a5fa", fontSize: "15px", fontFamily: "monospace", letterSpacing: "0.08em" }}>{sessionToken}</b>
+                            </div>
+                        )}
                     </div>
                 )}
 

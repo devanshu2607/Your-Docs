@@ -369,6 +369,20 @@ export default function Dashboard() {
                             })}
                         </div>
                     </div>
+                    {/* Active token display for debugging */}
+                    <div className="dev-token-panel" style={{ marginTop: "30px", padding: "16px", background: "rgba(255, 255, 255, 0.03)", border: "1px dashed rgba(255, 255, 255, 0.1)", borderRadius: "8px" }}>
+                        <p style={{ color: "#a0a5b0", fontSize: "13px", marginBottom: "8px", fontWeight: "500" }}>🔑 Active Auth Token (JWT) - click to copy:</p>
+                        <textarea 
+                            readOnly 
+                            value={localStorage.getItem("token") || "No token found"} 
+                            onClick={(e) => {
+                                if (e.target.value === "No token found") return;
+                                navigator.clipboard.writeText(e.target.value);
+                                alert("Auth token copied to clipboard!");
+                            }}
+                            style={{ width: "100%", height: "70px", background: "#111116", color: "#60a5fa", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "4px", padding: "8px", fontFamily: "monospace", fontSize: "11px", resize: "none", cursor: "pointer" }}
+                        />
+                    </div>
                 </div>
             </div>
         </div>

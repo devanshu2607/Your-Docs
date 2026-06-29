@@ -4,9 +4,9 @@ This repo already has Dockerized backend microservices, so the simplest AWS targ
 
 - Frontend on Vercel
 - Backend on one EC2 instance with Docker Compose
-- PostgreSQL in Docker on the same EC2 instance for the first deployment
+- AWS RDS PostgreSQL for the database layer
 
-That keeps the current architecture intact, avoids Render sleep behavior, and avoids adding RDS complexity on day one.
+This architecture isolates database operations, prevents local resource constraints on the EC2 host, and dramatically reduces query latency.
 
 ## Why your earlier upload felt stuck
 
@@ -40,11 +40,10 @@ Using plain `http://EC2-IP:8000` from a Vercel-hosted site is not a good product
    - `POSTGRES_PASSWORD`
    - `PREDICTION_API_KEY`
 
-For the simple EC2 setup, keep:
+For database connection setup, specify your RDS endpoint connection string:
 
-- `POSTGRES_DB=your_docs`
-- `POSTGRES_USER=postgres`
-- `SQL_DATABASE_URL=postgresql://postgres:<same-password>@postgres:5432/your_docs`
+- `SQL_DATABASE_URL=postgresql://<rds-username>:<rds-password>@<rds-endpoint>:5432/<rds-database-name>`
+- `DB_SCHEMA=your_docs` (optional: if you want to isolate data in a specific schema name. Omit or leave empty to default to the standard "public" schema).
 
 ## EC2 one-time setup
 
@@ -91,7 +90,7 @@ docker compose -f docker-compose.aws.yml logs -f gateway-service
 curl http://localhost:8000/health
 ```
 
-The database is private inside Docker networking, so you do not need to open port `5432` on the EC2 security group.
+Since the database runs on RDS, you do not need to open port `5432` on your EC2 instance's security group. However, you must configure your RDS Security Group to allow inbound TCP traffic on port `5432` from your EC2 instance's IP address or security group.
 
 If you want the stack to come back after a reboot:
 

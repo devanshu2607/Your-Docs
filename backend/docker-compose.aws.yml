@@ -1,23 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-your_docs}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    expose:
-      - "5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-your_docs}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
   gateway-service:
     build:
       context: .
@@ -61,9 +42,6 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 15s
@@ -81,9 +59,6 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 15s
@@ -103,9 +78,6 @@ services:
       - "8000"
     env_file:
       - ./.env.aws
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 15s
@@ -129,6 +101,3 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-
-volumes:
-  postgres_data:

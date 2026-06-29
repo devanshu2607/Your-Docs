@@ -111,6 +111,7 @@ async def websocket_endpoint(websocket: WebSocket, doc_id: str, token: str):
         await websocket.send_text(json.dumps({
             "type": "INIT_BLOCKS",
             "blocks": get_doc_blocks(room_doc_id, db),
+            "session_token": session.token,
         }))
 
         while True:
