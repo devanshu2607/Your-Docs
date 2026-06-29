@@ -10,6 +10,13 @@ class User_SignUp(BaseModel):
     address : Annotated[str , Field(..., description="enter your address")]
     password : Annotated[str , Field(..., description="enter your password")]
 
+    @field_validator("gender", mode="before")
+    @classmethod
+    def check_gender(cls, value):
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
+
     @field_validator("email")
     @classmethod
     def check_email(cls , value):
