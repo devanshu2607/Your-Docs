@@ -185,7 +185,7 @@ EOF
                     sh '''
                         chmod 600 "$AWS_SSH_KEY"
 
-                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "mkdir -p '${AWS_APP_DIR}'"
+                        ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "sudo mkdir -p '${AWS_APP_DIR}' && sudo chown -R ${AWS_EC2_USER}:${AWS_EC2_USER} '${AWS_APP_DIR}'"
 
                         rsync -az --delete \
                             -e "ssh -i $AWS_SSH_KEY -o StrictHostKeyChecking=no" \
