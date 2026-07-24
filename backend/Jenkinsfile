@@ -202,7 +202,7 @@ EOF
                         ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "
                             cd '${AWS_APP_DIR}' && \
                             docker compose -f docker-compose.aws.yml --env-file .env.aws up -d --build --remove-orphans && \
-                            docker compose -f docker-compose.aws.yml --env-file .env.aws exec -T auth-service python scripts/create_tables.py && \
+                            docker compose -f docker-compose.aws.yml --env-file .env.aws exec -w /app -T auth-service python scripts/create_tables.py && \
                             sudo mv /tmp/yourdocs.ddns.net.conf /etc/nginx/sites-available/yourdocs.ddns.net && \
                             sudo ln -sf /etc/nginx/sites-available/yourdocs.ddns.net /etc/nginx/sites-enabled/yourdocs.ddns.net && \
                             sudo rm -f /etc/nginx/sites-enabled/yourdocs.duckdns.org && \
