@@ -81,12 +81,12 @@ pipeline {
             }
             steps {
                 sh '''
-                    # Extract password from SQL_DATABASE_URL connection string
-                    PASS=$(echo "$SQL_DATABASE_URL" | sed -E 's|.*://[^:]+:([^@]+)@.*|\\1|')
-
                     cat > "$BACKEND_DIR/.env.aws" <<EOF
+DATABASE_URL=$SQL_DATABASE_URL
 SQL_DATABASE_URL=$SQL_DATABASE_URL
 SECRET_KEY=$SECRET_KEY
+REDIS_HOST=redis
+REDIS_PORT=6379
 AUTH_SERVICE_HOSTPORT=$AUTH_SERVICE_HOSTPORT
 DOCS_SERVICE_HOSTPORT=$DOCS_SERVICE_HOSTPORT
 WS_SERVICE_HOSTPORT=$WS_SERVICE_HOSTPORT
@@ -97,7 +97,6 @@ PREDICTION_PROVIDER=openrouter
 PREDICTION_API_KEY=$PREDICTION_API_KEY
 PREDICTION_MODEL=qwen/qwen3-next-80b-a3b-instruct:free
 PREDICTION_BASE_URL=https://openrouter.ai/api/v1
-POSTGRES_PASSWORD=$PASS
 EOF
                 '''
             }
@@ -110,8 +109,11 @@ EOF
             steps {
                 sh '''
                     cat > "$BACKEND_DIR/.env" <<EOF
+DATABASE_URL=$SQL_DATABASE_URL
 SQL_DATABASE_URL=$SQL_DATABASE_URL
 SECRET_KEY=$SECRET_KEY
+REDIS_HOST=redis
+REDIS_PORT=6379
 PREDICTION_PROVIDER=openrouter
 PREDICTION_API_KEY=$PREDICTION_API_KEY
 PREDICTION_MODEL=qwen/qwen3-next-80b-a3b-instruct:free

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, DateTime
+from sqlalchemy import Column, ForeignKey, DateTime, String
 from sqlalchemy.dialects.postgresql import UUID
 from Database.DataBase import Base
 import uuid
@@ -12,6 +12,7 @@ class SessionParticipant(Base):
 
     session_id = Column(UUID(as_uuid=True), ForeignKey("Collab_Session_Table.id"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("User_Table.id"))
+    login_session_id = Column(String, nullable=True)
 
     connected_at = Column(DateTime, default=datetime.utcnow)
     disconnected_at = Column(DateTime, nullable=True)

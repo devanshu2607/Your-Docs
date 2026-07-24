@@ -1,3 +1,4 @@
+import time
 import uuid
 from datetime import datetime
 
@@ -5,10 +6,11 @@ from fastapi import HTTPException
 
 from Models.Block_Model import DocBlock
 from Models.Collabration_Model import CollaborationSession
-from Models.Docs_Model import Document  # Ensures Docs_table is registered in metadata.
+from Models.Docs_Model import Document
 from Models.Participating_Model import SessionParticipant
-from Models.User_Model import User  # Ensures User_Table is registered in metadata.
 from Models.User_Document import UserDocument
+from Models.User_Model import User
+from Utils.redis_client import redis_client
 
 
 def resolve_doc(doc_ref, db):
@@ -49,27 +51,63 @@ def update_single_block(block_id, content, db):
     return block
 
 
-def get_or_create_session(docs_id, user_id, db):
+def get_or_create_session(doc_id, user_id, db):
+    # One session per doc FOREVER — find or create
     session = db.query(CollaborationSession).filter(
-        CollaborationSession.doc_id == docs_id,
-        CollaborationSession.ended_at == None,
+        CollaborationSession.doc_id == doc_id
     ).first()
+
     if session:
+        if not session.is_active:
+            session.is_active = True
+            session.last_started = datetime.utcnow()
+            db.commit()
         return session
 
-    session = CollaborationSession(
-        doc_id=docs_id,
-        token=str(uuid.uuid4()),
-        created_by=user_id,
+    # First time ever — use Redis lock for race condition protection
+    lock_key = f"collab_lock:{doc_id}"
+    lock = redis_client.set(lock_key, "locked", nx=True, ex=5)
+
+    if not lock:
+        time.sleep(0.1)
+        session = db.query(CollaborationSession).filter(
+            CollaborationSession.doc_id == doc_id
+        ).first()
+        if session:
+            session.is_active = True
+            db.commit()
+            return session
+
+    try:
+        session = db.query(CollaborationSession).filter(
+            CollaborationSession.doc_id == doc_id
+        ).first()
+        if session:
+            session.is_active = True
+            db.commit()
+            return session
+
+        session = CollaborationSession(
+            doc_id=doc_id,
+            created_by=user_id,   # user_id NOT session_id
+            is_active=True,
+            last_started=datetime.utcnow(),
+            token=str(uuid.uuid4())
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return session
+    finally:
+        redis_client.delete(lock_key)
+
+
+def add_participant(session_id, user_id, login_session_id, db):
+    participant = SessionParticipant(
+        session_id=session_id,
+        user_id=user_id,
+        login_session_id=str(login_session_id)
     )
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    return session
-
-
-def add_participant(session_id, user_id, db):
-    participant = SessionParticipant(session_id=session_id, user_id=user_id)
     db.add(participant)
     db.commit()
     db.refresh(participant)
@@ -84,29 +122,24 @@ def user_disconnect(participant_id, db):
     return participant
 
 
-def empty_session(session_id, db):
-    active = db.query(SessionParticipant).filter(
-        SessionParticipant.session_id == session_id,
-        SessionParticipant.disconnected_at == None,
-    ).count()
-    if active == 0:
-        session = db.query(CollaborationSession).filter(CollaborationSession.id == session_id).first()
-        if session:
-            session.ended_at = datetime.utcnow()
-            db.commit()
+def end_session(session_id, doc_id, db):
+    session = db.query(CollaborationSession).filter(
+        CollaborationSession.id == session_id
+    ).first()
+    if session:
+        session.is_active = False
+        session.last_ended = datetime.utcnow()
 
-
-def end_session(session_id, db):
-    session = db.query(CollaborationSession).filter(CollaborationSession.id == session_id).first()
-    if not session:
-        return {"message": "Session not found"}
-
-    session.ended_at = datetime.utcnow()
+    # Mark all participants disconnected
     db.query(SessionParticipant).filter(
         SessionParticipant.session_id == session_id,
-        SessionParticipant.disconnected_at == None,
+        SessionParticipant.disconnected_at == None
     ).update({SessionParticipant.disconnected_at: datetime.utcnow()})
+
     db.commit()
+
+    # Redis cleanup
+    redis_client.delete(f"session_active:{doc_id}")
     return {"message": "Session Ended"}
 
 

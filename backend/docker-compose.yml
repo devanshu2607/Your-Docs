@@ -1,4 +1,11 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis_server
+    ports:
+      - "6379:6379"
+    restart: always
+
   gateway-service:
     build:
       context: .
@@ -28,6 +35,12 @@ services:
       - "8001:8000"
     env_file:
       - ./.env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
 
   docs-service:
     build:
@@ -38,6 +51,12 @@ services:
       - "8002:8000"
     env_file:
       - ./.env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
 
   websocket-service:
     build:
@@ -48,6 +67,12 @@ services:
       - "8003:8000"
     env_file:
       - ./.env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
 
   prediction-service:
     build:
