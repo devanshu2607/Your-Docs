@@ -170,12 +170,26 @@ def get_doc(doc_id: str, current_user, db: Session):
     is_session_active = bool(redis_client.get(f"session_active:{doc_id_str}"))
 
     cached_content = redis_client.get(f"doc_content:{doc_id_str}")
+    blocks = (
+        db.query(DocBlock)
+        .filter(DocBlock.doc_id == doc.id)
+        .order_by(DocBlock.block_index)
+        .all()
+    )
 
     return {
         "id": doc_id_str,
         "join_code": doc.join_code,
         "title": doc.title,
         "content": cached_content or doc.content or "",
+        "blocks": [
+            {
+                "id": str(block.id),
+                "index": block.block_index,
+                "content": block.content or ""
+            }
+            for block in blocks
+        ],
         "created_by": str(doc.created_by),
         "same_user_already_editing": is_editing,
         "active_collab_session": is_session_active

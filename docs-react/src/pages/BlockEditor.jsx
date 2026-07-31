@@ -190,19 +190,18 @@ function applyContentToEditor(editor, content) {
 // parent called setState (e.g. setBlocks after a WS message), BlockEditor
 // re-rendered, LoadPlugin re-mounted, and doneRef reset to false. This caused
 // the initial DB content to re-fire and overwrite whatever the remote user typed.
-function LoadPlugin({ blocks, loadedRef }) {
+function LoadPlugin({ blocks, loadedRef, contentRef }) {
     const [editor] = useLexicalComposerContext()
 
     useEffect(() => {
         if (loadedRef.current) return
-        if (!blocks || blocks.length === 0) return
-        const saved = blocks[0]?.content?.trim()
+        const saved = (contentRef?.current || blocks?.[0]?.content || "").trim()
         if (!saved) return
 
         loadedRef.current = true
         setTimeout(() => applyContentToEditor(editor, saved), 80)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [blocks.length, editor])
+    }, [blocks.length, editor, contentRef])
 
     return null
 }
@@ -533,7 +532,7 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
                     <HistoryPlugin />
                     <ListPlugin />
                     <MarkdownShortcutPlugin transformers={SAFE_TRANSFORMERS} />
-                    <LoadPlugin blocks={blocks} loadedRef={loadedRef} />
+                    <LoadPlugin blocks={blocks} loadedRef={loadedRef} contentRef={contentRef} />
                     {liveRef && <LiveUpdatePlugin liveRef={liveRef} />}
                     {!readOnly && <SuggestionPlugin />}
                     <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
