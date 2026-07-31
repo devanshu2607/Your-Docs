@@ -66,6 +66,11 @@ class SaveContentSchema(BaseModel):
     content: str
 
 
+class UpdateDocSchema(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+
 class ProposeChangeSchema(BaseModel):
     proposed_content: str
 
@@ -77,6 +82,7 @@ def health():
 
 @app.get("/docs/my")
 @app.get("/user_docs")
+@app.post("/user_docs")
 def my_docs(db: Session = Depends(get_db), user=Depends(Jwt_Token_Checker)):
     return get_my_docs(str(user.id), db)
 
@@ -101,6 +107,18 @@ def view_doc(id: str, db: Session = Depends(get_db), user=Depends(Jwt_Token_Chec
 @app.put("/docs/{id}/title")
 def update_title(id: str, data: UpdateTitleSchema, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
     return update_doc_title(id, data.title, user.id, db)
+
+
+@app.put("/update_docs/{id}")
+def update_doc(id: str, data: UpdateDocSchema, user=Depends(Jwt_Token_Checker), db: Session = Depends(get_db)):
+    doc = None
+    if data.title is not None:
+        doc = update_doc_title(id, data.title, user.id, db)
+    if data.content is not None:
+        doc = save_doc_content(id, data.content, user, db)
+    if doc is None:
+        raise HTTPException(400, detail="No update fields provided")
+    return doc
 
 
 @app.patch("/docs/{id}/save")
