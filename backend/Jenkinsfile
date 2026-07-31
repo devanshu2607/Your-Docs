@@ -13,7 +13,7 @@ pipeline {
         string(name: 'AWS_INSTANCE_ID', defaultValue: 'i-0954d4cf57bf3f25a', description: 'AWS EC2 Instance ID to start/query.')
         string(name: 'AWS_REGION', defaultValue: 'us-east-1', description: 'AWS region of your EC2 instance.')
         string(name: 'FRONTEND_URL', defaultValue: 'https://your-docs-omega.vercel.app', description: 'Public Vercel frontend URL allowed by backend CORS.')
-        string(name: 'AWS_EC2_HOST', defaultValue: '100.27.99.108', description: 'Default EC2 host or DNS name. Overridden automatically if START_AWS_INSTANCE is true.')
+        string(name: 'AWS_EC2_HOST', defaultValue: '100.27.99.108', description: 'Fallback EC2 host or DNS name. Jenkins will try to refresh it from AWS for AWS deploys.')
         string(name: 'AWS_EC2_USER', defaultValue: 'ubuntu', description: 'SSH user for the EC2 instance.')
         string(name: 'AWS_APP_DIR', defaultValue: '/opt/your-docs/backend', description: 'Remote directory where the backend stack lives on EC2.')
         string(name: 'BACKEND_HEALTHCHECK_URL', defaultValue: 'https://api.example.com/health', description: 'Public health endpoint checked after deployment.')
@@ -64,13 +64,32 @@ pipeline {
             }
         }
 
-        stage('Configure Host IP') {
+        stage('Resolve EC2 Host') {
             when {
-                expression { return params.DEPLOY_TARGET == 'aws' && !params.START_AWS_INSTANCE }
+                expression { return params.DEPLOY_TARGET == 'aws' }
             }
             steps {
                 script {
-                    env.AWS_EC2_HOST = params.AWS_EC2_HOST
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        def resolvedHost = params.AWS_EC2_HOST?.trim()
+
+                        if (params.AWS_INSTANCE_ID?.trim()) {
+                            def ip = sh(
+                                script: "aws ec2 describe-instances --instance-ids '${params.AWS_INSTANCE_ID}' --region '${params.AWS_REGION}' --query 'Reservations[0].Instances[0].PublicIpAddress' --output text",
+                                returnStdout: true
+                            ).trim()
+
+                            if (ip && ip != 'None' && ip != 'null') {
+                                resolvedHost = ip
+                            }
+                        }
+
+                        env.AWS_EC2_HOST = resolvedHost
+                        echo "Using EC2 host: ${env.AWS_EC2_HOST}"
+                    }
                 }
             }
         }
@@ -184,6 +203,18 @@ EOF
                 withCredentials([file(credentialsId: 'aws-ec2-pem-file', variable: 'AWS_SSH_KEY')]) {
                     sh '''
                         chmod 600 "$AWS_SSH_KEY"
+
+                        echo "Waiting for SSH on ${AWS_EC2_USER}@${AWS_EC2_HOST}..."
+                        for i in 1 2 3 4 5 6; do
+                            if ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${AWS_EC2_USER}@${AWS_EC2_HOST}" "echo SSH_OK"; then
+                                break
+                            fi
+                            if [ "$i" -eq 6 ]; then
+                                echo "SSH still unavailable on ${AWS_EC2_HOST}:22"
+                                exit 1
+                            fi
+                            sleep 10
+                        done
 
                         ssh -i "$AWS_SSH_KEY" -o StrictHostKeyChecking=no "${AWS_EC2_USER}@${AWS_EC2_HOST}" "sudo mkdir -p '${AWS_APP_DIR}' && sudo chown -R ${AWS_EC2_USER}:${AWS_EC2_USER} '${AWS_APP_DIR}'"
 
