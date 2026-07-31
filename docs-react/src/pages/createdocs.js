@@ -107,9 +107,12 @@ export default function CreateDocs() {
                     return
                 }
 
-                if (msg.type === 'INIT_BLOCKS') {
+                if (msg.type === 'INIT' || msg.type === 'INIT_BLOCKS') {
                     const nextBlocks = msg.blocks || []
                     setBlocks(nextBlocks)
+                    if (msg.content) {
+                        contentRef.current = msg.content
+                    }
                     // Only load into editor on first connect — never overwrite user edits
                     if (!loadedRef.current && nextBlocks[0]?.content) {
                         liveRef.current.push(nextBlocks[0].content)  // ← push to queue

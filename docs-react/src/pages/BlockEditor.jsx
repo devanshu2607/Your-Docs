@@ -514,7 +514,7 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
 
             onBlocksChange(newBlocks)
         }, 250)
-    }, [wsRef, onBlocksChange])
+    }, [wsRef, onBlocksChange, contentRef])
 
     return (
         <LexicalComposer initialConfig={initialConfig}>

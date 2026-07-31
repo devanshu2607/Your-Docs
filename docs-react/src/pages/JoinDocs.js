@@ -96,9 +96,13 @@ export default function JoinDocs() {
                         return
                     }
 
-                    if (msg.type === 'INIT_BLOCKS') {
+                    if (msg.type === 'INIT' || msg.type === 'INIT_BLOCKS') {
                         const nextBlocks = msg.blocks || []
                         setBlocks(nextBlocks)
+                        if (msg.content) {
+                            // Keep the initial full document in sync for the editor save path.
+                            liveRef.current.push(msg.content)
+                        }
                         // Only push to queue on the very first connect
                         if (!loadedRef.current && nextBlocks[0]?.content) {
                             liveRef.current.push(nextBlocks[0].content)  // ← push to queue

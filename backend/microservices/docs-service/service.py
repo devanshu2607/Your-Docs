@@ -77,6 +77,7 @@ def get_my_docs(user_id, db: Session):
             data = redis_client.hgetall(f"doc:{doc_id}")
             if data:
                 data["id"] = doc_id
+                data["content"] = redis_client.get(f"doc_content:{doc_id}") or data.get("content") or ""
                 docs.append(data)
         return docs
 
@@ -88,7 +89,8 @@ def get_my_docs(user_id, db: Session):
         redis_client.hset(f"doc:{str(doc.id)}", mapping={
             "title": doc.title or "",
             "join_code": doc.join_code or "",
-            "created_by": user_id_str
+            "created_by": user_id_str,
+            "content": doc.content or ""
         })
     if docs:
         db.commit()
@@ -97,7 +99,8 @@ def get_my_docs(user_id, db: Session):
             "id": str(doc.id),
             "title": doc.title,
             "join_code": doc.join_code,
-            "created_by": user_id_str
+            "created_by": user_id_str,
+            "content": doc.content or ""
         }
         for doc in docs
     ]
@@ -149,7 +152,8 @@ def create_doc(title: str, user_id, db: Session):
     redis_client.hset(f"doc:{str(doc.id)}", mapping={
         "title": doc.title or "",
         "join_code": doc.join_code or "",
-        "created_by": user_id_str
+        "created_by": user_id_str,
+        "content": doc.content or ""
     })
     return doc
 
@@ -217,6 +221,7 @@ def save_doc_content(doc_id: str, content: str, user, db: Session):
 
     # Sync Redis
     redis_client.set(f"doc_content:{str(doc.id)}", content, ex=86400)
+    redis_client.hset(f"doc:{str(doc.id)}", "content", content)
     return doc
 
 

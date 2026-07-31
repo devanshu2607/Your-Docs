@@ -106,9 +106,12 @@ export default function UpdateDocs() {
                     return
                 }
 
-                if (msg.type === 'INIT_BLOCKS') {
+                if (msg.type === 'INIT' || msg.type === 'INIT_BLOCKS') {
                     const nextBlocks = msg.blocks || []
                     setBlocks(nextBlocks)
+                    if (msg.content) {
+                        contentRef.current = msg.content
+                    }
                     if (msg.session_token) {
                         setSessionToken(msg.session_token)
                     }
