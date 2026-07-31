@@ -458,7 +458,7 @@ function Toolbar({ readOnly }) {
 //
 // loadedRef: created in parent (useRef(false)), passed here so LoadPlugin never
 //            re-fires after the first load regardless of how many re-renders happen.
-export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlocksChange, readOnly = false }) {
+export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlocksChange, contentRef, readOnly = false }) {
     const debounceRef  = useRef(null)
     const prevStateRef = useRef(null)
     const blocksRef    = useRef(blocks)
@@ -489,6 +489,7 @@ export default function BlockEditor({ blocks, wsRef, liveRef, loadedRef, onBlock
             const stateJSON = JSON.stringify(editorState.toJSON())
             if (stateJSON === prevStateRef.current) return
             prevStateRef.current = stateJSON
+            if (contentRef) contentRef.current = stateJSON
 
             const currentBlocks = blocksRef.current
             if (!currentBlocks || currentBlocks.length === 0) return

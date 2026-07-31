@@ -24,6 +24,7 @@ export default function UpdateDocs() {
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
+    const contentRef     = useRef("")
     const blocksRef      = useRef([])
     const reconnectRef   = useRef(null)
     const reconnectAttemptsRef = useRef(0)
@@ -48,6 +49,7 @@ export default function UpdateDocs() {
                 setBlocks(res.data.blocks || [])
                 setRole(res.data.role || "editor")
                 setShareCode(res.data.join_code || "")
+                contentRef.current = res.data.content || ""
             })
             .catch(() => setError("Doc load failed"))
     }, [id])
@@ -172,7 +174,7 @@ export default function UpdateDocs() {
         if (loading) return
         setLoading(true)
         try {
-            const content = blocksRef.current[0]?.content ?? ""
+            const content = contentRef.current || blocksRef.current[0]?.content || ""
             await api.put(`/update_docs/${id}`, { title, content })
             setSaved(true)
             setTimeout(() => navigate("/dashboard"), 1000)
@@ -252,6 +254,7 @@ export default function UpdateDocs() {
                     wsRef={wsRef}
                     liveRef={liveRef}
                     loadedRef={loadedRef}
+                    contentRef={contentRef}
                     onBlocksChange={handleBlocksChange}
                 />
 

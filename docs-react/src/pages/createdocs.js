@@ -18,6 +18,7 @@ export default function CreateDocs() {
 
     const wsRef          = useRef(null)
     const liveRef        = useRef([])       // ← ARRAY queue, not single value
+    const contentRef     = useRef("")
     const blocksRef      = useRef([])
     const reconnectRef   = useRef(null)
     const reconnectAttemptsRef = useRef(0)
@@ -170,7 +171,7 @@ export default function CreateDocs() {
     const handleSave = async () => {
         if (!docId) return
         try {
-            const content = blocksRef.current[0]?.content ?? ""
+            const content = contentRef.current || blocksRef.current[0]?.content || ""
             await api.put(`/update_docs/${docId}`, { title, content })
             navigate('/dashboard')
         } catch { setError("Save failed") }
@@ -247,6 +248,7 @@ export default function CreateDocs() {
                         wsRef={wsRef}
                         liveRef={liveRef}
                         loadedRef={loadedRef}
+                        contentRef={contentRef}
                         onBlocksChange={handleBlocksChange}
                     />
                 )}
